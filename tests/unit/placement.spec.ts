@@ -92,6 +92,11 @@ describe("clearance between outlines", () => {
     expect(near).toBeGreaterThan(20);
   });
 
+  it("refuses a clearance the index was not built to reach", () => {
+    const a = rect(10, 10);
+    expect(() => clashes(a, polygonBounds(a), edgeIndex(rect(10, 10, 20, 0), 1), 2)).toThrow(RangeError);
+  });
+
   it("finds the point of nearest approach", () => {
     const a = rect(10, 10);
     const near = nearestApproach(a, edgeIndex(rect(10, 10, 11, 0), 2))!;
@@ -195,5 +200,7 @@ describe("no-overlap dragging", () => {
     const b = polygonBounds(outline);
     // No further than one piece across plus the margin and a search step or two.
     expect(distance(pose, { x: 2, y: 1 })).toBeLessThan(Math.hypot(b.maxX - b.minX, b.maxY - b.minY) + 2 + 10);
+    // Pulled back toward the drop until it just keeps the margin.
+    expect(gapBetween(outline, pose, origin)).toBeLessThan(2.1);
   });
 });

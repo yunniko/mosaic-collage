@@ -1,16 +1,17 @@
 import type { Polygon } from "../geometry/polygon";
 import { type Pose, localToWorld, poseWithLocalAt } from "../geometry/pose";
 import type { Vec } from "../geometry/vec";
-import { type DragRules, constrainMove, constrainTurn, isFree } from "./placement";
+import { type DragRules, type Moved, constrainMove, constrainTurn, isFree } from "./placement";
 
-/** A piece being dragged: its outline, the local point the pointer holds it by, where it is now, and the board's rules. */
-export interface DragState {
+/**
+ * A piece being dragged: its outline, the local point the pointer holds it by, and the board's rules, plus where it
+ * is now (`Moved`: the pose, and `clear`, false while it is in a conflict, drawn red and following the pointer freely).
+ * Each step replaces the `Moved` part with what `constrainMove`/`constrainTurn` return.
+ */
+export interface DragState extends Moved {
   outline: Polygon;
   /** The grabbed point in the piece's local frame. Rotation while dragging turns about it. */
   grabLocal: Vec;
-  pose: Pose;
-  /** False while the piece is in a conflict with overlap off: drawn in red, and it follows the pointer freely. */
-  clear: boolean;
   /** The no-overlap rules, fixed for the drag: the other pieces don't move meanwhile. */
   rules: DragRules;
 }

@@ -132,6 +132,10 @@ export function segmentGap(a: Vec, b: Vec, c: Vec, d: Vec): { gap: number; at: V
  * the index's reach.
  */
 export function clashes(moving: readonly Vec[], movingBounds: Bounds, fixed: EdgeIndex, clearance: number): boolean {
+  if (clearance > fixed.reach) {
+    // Edges further than the reach were never bucketed: answering anyway would report near pieces as clear.
+    throw new RangeError(`clashes: clearance ${clearance} exceeds the edge index's reach ${fixed.reach}`);
+  }
   if (!boundsOverlap(expandBounds(movingBounds, clearance), fixed.bounds)) return false;
   const n = moving.length;
   const f = fixed.poly;

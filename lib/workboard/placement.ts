@@ -2,7 +2,7 @@ import { getPiece, getPlacement, movePlacement, placePiece } from "../document/o
 import type { MosaicDocument } from "../document/types";
 import { pieceOutline } from "../shapes/outline";
 import { type EdgeIndex, clashes, edgeIndex, nearestApproach } from "../geometry/collision";
-import { type Bounds, polygonBounds, type Polygon } from "../geometry/polygon";
+import { type Bounds, boundsOverlap, expandBounds, polygonBounds, type Polygon } from "../geometry/polygon";
 import { type Pose, localToWorld, rotatePoseAbout, transformPolygon } from "../geometry/pose";
 import { angleBetween, angleDelta, distance, length, lerp, type Vec } from "../geometry/vec";
 import { placedShape } from "./scene";
@@ -77,18 +77,31 @@ function radius(local: Polygon): number {
 
 const lerpPose = (a: Pose, b: Pose, t: number): Pose => ({ ...lerp(a, b, t), rotation: a.rotation + (b.rotation - a.rotation) * t });
 
-/**
- * Moves from the free pose `from` toward `to` along `path` (t from 0 to 1), stopping just short of the first contact.
- * Returns the last free pose and the obstacle that stopped it, if any.
- */
-function sweep(
-  obs: Obstacles,
-  local: Polygon,
-  from: Pose,
-  to: Pose,
-  path: (t: number) => Pose = (t) => lerpPose(from, to, t)
-): { pose: Pose; blocker: EdgeIndex | null } {
+interface Swept {
+  pose: Pose;
+  blocker: EdgeIndex | null;
+}
+
+/** A straight move from the free pose `from` to `to`, stopped just short of the first contact. */
+function sweepMove(obs: Obstacles, local: Polygon, from: Pose, to: Pose): Swept {
+  // No outline point moves further than the origin does plus the turn times its distance from the origin.
   const travel = distance(from, to) + Math.abs(to.rotation - from.rotation) * radius(local);
+  return sweepPath(obs, local, (t) => lerpPose(from, to, t), travel);
+}
+
+/** A turn of the free pose `from` by `delta` about `pivot`, stopped just short of the first contact. */
+function sweepTurn(obs: Obstacles, local: Polygon, from: Pose, pivot: Vec, delta: number): Swept {
+  // Each point moves along an arc about the pivot: the furthest point's arc bounds them all.
+  let reach = 0;
+  for (const p of posed(local, from).outline) reach = Math.max(reach, distance(p, pivot));
+  return sweepPath(obs, local, (t) => rotatePoseAbout(from, pivot, delta * t), Math.abs(delta) * reach);
+}
+
+/**
+ * Follows `path` (t from 0 to 1, free at 0), stopping just short of the first contact. `travel` bounds how far any
+ * outline point moves over the whole path, so samples SWEEP_STEP apart can't step over a margin.
+ */
+function sweepPath(obs: Obstacles, local: Polygon, path: (t: number) => Pose, travel: number): Swept {
   const samples = Math.min(MAX_SWEEP_SAMPLES, Math.max(1, Math.ceil(travel / SWEEP_STEP)));
   // Halve the hit interval until it spans under CONTACT_PRECISION of travel.
   const rounds = Math.max(1, Math.ceil(Math.log2(travel / samples / CONTACT_PRECISION)));
@@ -135,7 +148,7 @@ export function constrainMove(rules: DragRules, local: Polygon, current: Moved, 
   const obs = rules.obstacles;
   if (!obs || isFree(obs, local, target)) return { pose: target, clear: true };
   if (!current.clear) return { pose: target, clear: false };
-  const { pose: stopped, blocker } = sweep(obs, local, current.pose, target);
+  const { pose: stopped, blocker } = sweepMove(obs, local, current.pose, target);
   if (!blocker || !rules.autoRotate) return { pose: stopped, clear: true };
   // Swing about the contact point so the grab point turns toward the pointer, as a card pushed past a corner does.
   const contact = nearestApproach(posed(local, stopped).outline, blocker);
@@ -144,8 +157,7 @@ export function constrainMove(rules: DragRules, local: Polygon, current: Moved, 
   const pivot = contact.at;
   const turn = angleDelta(angleBetween(pivot, grab), angleBetween(pivot, pointer));
   if (Math.abs(turn) < 1e-6) return { pose: stopped, clear: true };
-  const swung = (t: number) => rotatePoseAbout(stopped, pivot, turn * t);
-  return { pose: sweep(obs, local, stopped, swung(1), swung).pose, clear: true };
+  return { pose: sweepTurn(obs, local, stopped, pivot, turn).pose, clear: true };
 }
 
 /** A turn by `delta` about `pivot`, stopped at the first contact unless the piece is still in a conflict. */
@@ -153,17 +165,33 @@ export function constrainTurn(obs: Obstacles | null, local: Polygon, current: Mo
   const target = rotatePoseAbout(current.pose, pivot, delta);
   if (!obs) return { pose: target, clear: true };
   if (!current.clear) return { pose: target, clear: isFree(obs, local, target) };
-  const turned = (t: number) => rotatePoseAbout(current.pose, pivot, delta * t);
-  return { pose: sweep(obs, local, current.pose, target, turned).pose, clear: true };
+  return { pose: sweepTurn(obs, local, current.pose, pivot, delta).pose, clear: true };
 }
+
+/** Whether `here` shifted by (dx, dy) keeps the margin: obstacle bounds first, the outline only if one is near. */
+function freeShifted(obs: Obstacles, here: Posed, dx: number, dy: number): boolean {
+  const b = here.bounds;
+  const bounds = { minX: b.minX + dx, minY: b.minY + dy, maxX: b.maxX + dx, maxY: b.maxY + dy };
+  let outline: Polygon | null = null;
+  for (const ix of obs.items) {
+    if (!boundsOverlap(expandBounds(bounds, obs.margin), ix.bounds)) continue;
+    outline ??= here.outline.map((p) => ({ x: p.x + dx, y: p.y + dy }));
+    if (clashes(outline, bounds, ix, obs.margin)) return false;
+  }
+  return true;
+}
+
+/** Bisection rounds pulling a found free spot back toward the drop: within step / 2^8 of the nearest along its ray. */
+const PULL_BACK_ROUNDS = 8;
 
 /**
  * The free pose nearest `pose` with the same rotation: `pose` itself if it is free, else the first free spot on
- * widening rings around it, else just right of everything on the board.
+ * widening rings around it, pulled back along its ray toward the drop; else just right of everything on the board.
  */
 export function nearestFree(obs: Obstacles | null, local: Polygon, pose: Pose): Pose {
-  if (!obs || isFree(obs, local, pose)) return pose;
+  if (!obs) return pose;
   const here = posed(local, pose);
+  if (freeShifted(obs, here, 0, 0)) return pose;
   const size = Math.max(here.bounds.maxX - here.bounds.minX, here.bounds.maxY - here.bounds.minY);
   const step = Math.min(Math.max(size / 8, 1, obs.margin / 2), 10);
   for (let r = 1; r <= FREE_SEARCH_RINGS; r++) {
@@ -172,8 +200,17 @@ export function nearestFree(obs: Obstacles | null, local: Polygon, pose: Pose): 
     for (let k = 0; k < count; k++) {
       // Start each ring at a different angle so the search has no favoured direction.
       const a = (k / count) * 2 * Math.PI + r;
-      const candidate = { ...pose, x: pose.x + Math.cos(a) * dist, y: pose.y + Math.sin(a) * dist };
-      if (isFree(obs, local, candidate)) return candidate;
+      const ux = Math.cos(a);
+      const uy = Math.sin(a);
+      if (!freeShifted(obs, here, ux * dist, uy * dist)) continue;
+      let free = dist;
+      let blocked = dist - step;
+      for (let i = 0; i < PULL_BACK_ROUNDS; i++) {
+        const mid = (free + blocked) / 2;
+        if (freeShifted(obs, here, ux * mid, uy * mid)) free = mid;
+        else blocked = mid;
+      }
+      return { ...pose, x: pose.x + ux * free, y: pose.y + uy * free };
     }
   }
   let maxX = -Infinity;
