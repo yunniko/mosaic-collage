@@ -129,3 +129,24 @@ test("Esc during a stroke cancels the cut, and a stray click is not an error", a
   const { doc } = await savedDocument(page);
   expect(doc.pieces[0].shape.kind).toBe("predefined");
 });
+
+test("a number typed digit by digit is not clamped on the way, and leaving the box clamps it", async ({ page }) => {
+  await openStudio(page);
+  const u = ui(page);
+  await u.newPiece.click();
+  const box = page.getByRole("spinbutton", { name: "Width" }).first();
+  // "1" is below the 4 mm minimum on the way to "12".
+  await box.fill("");
+  await box.pressSequentially("12");
+  await box.press("Enter");
+  await expect(box).toHaveValue("12");
+  expect((await savedDocument(page)).doc.pieces[0].shape).toMatchObject({ params: { width: 12 } });
+
+  await box.fill("2");
+  await box.blur();
+  await expect(box).toHaveValue("4");
+  await box.fill("");
+  await box.blur();
+  await expect(box).toHaveValue("4");
+  expect((await savedDocument(page)).doc.pieces[0].shape).toMatchObject({ params: { width: 4 } });
+});

@@ -34,7 +34,9 @@ export default function Studio() {
   return (
     <div className="flex h-dvh flex-col">
       <TopBar />
-      <main className="flex min-h-0 flex-1 gap-3 p-3">{view === "cutboard" ? <Cutboard /> : <Workboard />}</main>
+      <main className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3 md:flex-row md:overflow-visible">
+        {view === "cutboard" ? <Cutboard /> : <Workboard />}
+      </main>
       <Notices />
     </div>
   );

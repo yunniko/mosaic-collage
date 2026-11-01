@@ -143,3 +143,19 @@ test.describe("with overlap off", () => {
     expect(keepApart(a, swung, 2)).toBe(true);
   });
 });
+
+test.describe("on a phone-width screen", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test("the boards come first, full width, and nothing scrolls sideways", async ({ page }) => {
+    await openStudio(page);
+    await ui(page).newPiece.click();
+    for (const view of ["cutboard", "workboard"] as const) {
+      await ui(page).tab(view).click();
+      const box = (await page.getByTestId(view).boundingBox())!;
+      expect(box.width).toBeGreaterThan(340);
+      expect(box.y).toBeLessThan(250);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+    }
+  });
+});

@@ -40,7 +40,7 @@ export function Tray() {
   };
 
   return (
-    <aside className="panel flex w-44 shrink-0 flex-col gap-2 p-3" aria-label={t("tray")}>
+    <aside className="panel flex w-full shrink-0 md:w-44 flex-col gap-2 p-3" aria-label={t("tray")}>
       <h2 className="text-sm font-semibold">{t("tray")}</h2>
       <p className="text-xs text-ink-soft">{doc.pieces.length ? t("trayHint") : t("trayEmpty")}</p>
       <ul className="-mx-1 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-1" data-testid="tray">

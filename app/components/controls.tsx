@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { useId, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { ParamSpec } from "@/lib/shapes/params";
 
@@ -18,6 +18,15 @@ export function NumberField(props: {
 }) {
   const id = useId();
   const clamp = (v: number) => Math.min(props.max, Math.max(props.min, v));
+  const [draft, setDraft] = useState<string | null>(null);
+  const parse = (s: string) => (s.trim() !== "" && Number.isFinite(Number(s)) ? Number(s) : null);
+  const commit = () => {
+    if (draft === null) return;
+    const v = parse(draft);
+    // An empty or unreadable box goes back to the current value.
+    if (v !== null && clamp(v) !== props.value) props.onChange(clamp(v));
+    setDraft(null);
+  };
   return (
     <div className="flex flex-col gap-0.5">
       <label htmlFor={id} className="field-label">
@@ -43,11 +52,18 @@ export function NumberField(props: {
           min={props.min}
           max={props.max}
           step={props.step}
-          value={Number(props.value.toFixed(3))}
+          value={draft ?? Number(props.value.toFixed(3))}
           disabled={props.disabled}
           onChange={(e) => {
-            const v = Number(e.target.value);
-            if (Number.isFinite(v) && e.target.value !== "") props.onChange(clamp(v));
+            // Typing passes through out-of-range values ("1" on the way to "12" with a minimum of 4): the draft is
+            // kept as typed, applied live only while in range, and clamped when the box is left.
+            setDraft(e.target.value);
+            const v = parse(e.target.value);
+            if (v !== null && v >= props.min && v <= props.max) props.onChange(v);
+          }}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commit();
           }}
         />
         {props.unit ? <span className="w-5 text-xs text-ink-soft">{props.unit}</span> : null}

@@ -39,7 +39,10 @@ export function Workboard() {
   return (
     <>
       <Tray />
-      <div className="board-frame relative min-w-0 flex-1" data-testid="workboard">
+      <div
+        className="board-frame relative order-first min-h-[60dvh] min-w-0 shrink-0 md:order-none md:min-h-0 md:shrink md:flex-1"
+        data-testid="workboard"
+      >
         <WorkboardCanvas />
         {empty ? (
           <p className="pointer-events-none absolute inset-x-0 top-4 mx-auto w-fit max-w-md rounded-md bg-paper/90 px-3 py-1.5 text-center text-sm text-ink-soft shadow">

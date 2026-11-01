@@ -23,7 +23,7 @@ export function BoardPanel() {
   const none = chosen.length === 0;
 
   return (
-    <aside className="panel flex w-64 shrink-0 flex-col gap-3 overflow-y-auto p-3" aria-label={t("settings")}>
+    <aside className="panel flex w-full shrink-0 md:w-64 flex-col gap-3 overflow-y-auto p-3" aria-label={t("settings")}>
       <Section title={t("settings")} testId="board-settings">
         <Toggle
           label={t("allowOverlap")}

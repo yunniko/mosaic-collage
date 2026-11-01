@@ -23,7 +23,7 @@ export function PieceEditor() {
 
   if (!piece) {
     return (
-      <aside className="panel w-72 shrink-0 p-3 text-sm text-ink-soft" data-testid="piece-editor">
+      <aside className="panel w-full shrink-0 md:w-72 p-3 text-sm text-ink-soft" data-testid="piece-editor">
         {t("editor.noPiece")}
       </aside>
     );
@@ -39,7 +39,7 @@ export function PieceEditor() {
 
   return (
     <aside
-      className="panel flex w-72 shrink-0 flex-col gap-3 overflow-y-auto p-3"
+      className="panel flex w-full shrink-0 md:w-72 flex-col gap-3 overflow-y-auto p-3"
       data-testid="piece-editor"
       aria-label={t("editor.title")}
     >

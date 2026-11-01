@@ -9,7 +9,10 @@ export function Cutboard() {
   return (
     <>
       <PieceLibrary />
-      <div className="board-frame relative min-w-0 flex-1" data-testid="cutboard">
+      <div
+        className="board-frame relative order-first min-h-[60dvh] min-w-0 shrink-0 md:order-none md:min-h-0 md:shrink md:flex-1"
+        data-testid="cutboard"
+      >
         <CutboardCanvas />
       </div>
       <PieceEditor />

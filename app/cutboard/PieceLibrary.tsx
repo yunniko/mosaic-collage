@@ -43,7 +43,7 @@ export function PieceLibrary() {
   };
 
   return (
-    <aside className="panel flex w-56 shrink-0 flex-col gap-2 p-3" aria-label={t("title")}>
+    <aside className="panel flex w-full shrink-0 md:w-56 flex-col gap-2 p-3" aria-label={t("title")}>
       <h2 className="text-sm font-semibold">{t("title")}</h2>
       <div className="flex flex-wrap gap-1.5">
         <button type="button" className="btn btn-primary" onClick={create} data-testid="new-piece">
