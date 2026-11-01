@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
-import { getPiece, movePlacement, placePiece } from "@/lib/document/ops";
+import { getPiece } from "@/lib/document/ops";
 import { newId } from "@/lib/document/defaults";
 import type { MosaicDocument, Placement } from "@/lib/document/types";
 import { type Pose, transformPolygon, worldToLocal } from "@/lib/geometry/pose";
@@ -11,7 +11,7 @@ import { angleBetween, angleDelta, distance, type Vec } from "@/lib/geometry/vec
 import { pieceOutline } from "@/lib/shapes/outline";
 import { type Camera, fitBounds, panBy, pinch, screenToWorld, wheelZoom } from "@/lib/view/camera";
 import { type DragState, dragTo, rotateDrag, startDrag } from "@/lib/workboard/drag";
-import { type DragRules, isFree, nearestFree, obstaclesFor } from "@/lib/workboard/placement";
+import { type DragRules, moveFree, obstaclesFor, placeFree } from "@/lib/workboard/placement";
 import { artworkBounds, hitTest, placedShape } from "@/lib/workboard/scene";
 import { CLICK_SLOP, applyCamera, canvasPoint, prepareCanvas, useElementSize } from "../components/canvas-hooks";
 import { drawTable } from "../render/surfaces";
@@ -113,8 +113,7 @@ export function WorkboardCanvas() {
       if (piece) {
         drawPiece(ctx, piece, g.state.pose, cam, Math.max(doc.board.shadow, 0.6), true);
         // With overlap off, a piece still in a conflict (it came in over others) is outlined in red until it is clear.
-        const clear = isFree(g.state.rules.obstacles, g.state.outline, g.state.pose);
-        drawOutlineMark(ctx, transformPolygon(g.state.outline, g.state.pose), cam, clear ? "selected" : "conflict");
+        drawOutlineMark(ctx, transformPolygon(g.state.outline, g.state.pose), cam, g.state.clear ? "selected" : "conflict");
       }
     }
     ctx.restore();
@@ -143,16 +142,14 @@ export function WorkboardCanvas() {
    * overlap off, a drop that would overlap or crowd another piece moves to the nearest free spot.
    */
   const finishDrag = useCallback(
-    (pieceId: string, dropped: Pose, placementId?: string) => {
+    (pieceId: string, pose: Pose, placementId?: string) => {
       const onError = (e: unknown) => store.notify("error", errorText(t, e));
-      const doc = store.doc;
-      const pose = nearestFree(obstaclesFor(doc, placementId), pieceOutline(getPiece(doc, pieceId)), dropped);
       if (placementId) {
-        store.apply((d) => movePlacement(d, placementId, pose), onError);
+        store.apply((d) => moveFree(d, placementId, pose), onError);
         return;
       }
       const id = newId();
-      if (store.apply((d) => placePiece(d, pieceId, pose, id).doc, onError)) store.set({ selectedPlacementIds: [id] });
+      if (store.apply((d) => placeFree(d, pieceId, pose, id).doc, onError)) store.set({ selectedPlacementIds: [id] });
     },
     [t]
   );

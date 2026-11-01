@@ -122,10 +122,9 @@ test.describe("with overlap off", () => {
   });
 
   test("with auto-rotate on, a piece stopped on its corner swings about it toward the pointer", async ({ page }) => {
-    const u = ui(page);
-    await u.autoRotate.check();
     const [a, b] = (await savedDocument(page)).doc.placements;
-    // Carry the second piece clear to the right of the first, turning it 45° on the way: a diamond.
+    // Carry the second piece clear to the right of the first, turning it 45° on the way: a diamond. Auto-rotate is
+    // still off, so rubbing past the first piece on the way can't tilt it.
     const side = { x: a.pose.x + 70, y: a.pose.y };
     await page.mouse.move(...xy(await boardToPage(page, b.pose)));
     await page.mouse.down();
@@ -134,6 +133,7 @@ test.describe("with overlap off", () => {
     await page.mouse.up();
     const diamond = (await savedDocument(page)).doc.placements[1];
     expect(diamond.pose.rotation).toBeCloseTo(Math.PI / 4, 5);
+    await ui(page).autoRotate.check();
 
     // Pull it up and to the left, past the first piece: its left corner meets the first piece's side and it swings.
     const to = { x: a.pose.x + 10, y: a.pose.y - 40 };

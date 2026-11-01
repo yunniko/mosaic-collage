@@ -1,8 +1,7 @@
 "use client";
 
-import { getPiece, getPlacement, movePlacement, removePlacements, reorderPlacements, setLocked, type ZMove } from "@/lib/document/ops";
-import { pieceOutline } from "@/lib/shapes/outline";
-import { constrainTurn, obstaclesFor } from "@/lib/workboard/placement";
+import { removePlacements, reorderPlacements, setLocked, type ZMove } from "@/lib/document/ops";
+import { turnFree } from "@/lib/workboard/placement";
 import { errorText } from "../state/errors";
 import { store } from "../state/store";
 
@@ -30,15 +29,7 @@ export function selectionActions(t: T) {
     rotate(delta: number) {
       const sel = ids();
       if (!sel.length) return;
-      store.apply(
-        (d) =>
-          sel.reduce((acc, id) => {
-            const pl = getPlacement(acc, id);
-            const outline = pieceOutline(getPiece(acc, pl.pieceId));
-            return movePlacement(acc, id, constrainTurn(obstaclesFor(acc, id), outline, pl.pose, pl.pose, delta));
-          }, d),
-        onError
-      );
+      store.apply((d) => sel.reduce((acc, id) => turnFree(acc, id, delta), d), onError);
     },
   };
 }

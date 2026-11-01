@@ -1,8 +1,10 @@
+import { getPiece, getPlacement, movePlacement, placePiece } from "../document/ops";
 import type { MosaicDocument } from "../document/types";
+import { pieceOutline } from "../shapes/outline";
 import { type EdgeIndex, clashes, edgeIndex, nearestApproach } from "../geometry/collision";
 import { type Bounds, polygonBounds, type Polygon } from "../geometry/polygon";
 import { type Pose, localToWorld, rotatePoseAbout, transformPolygon } from "../geometry/pose";
-import { angleBetween, angleDelta, distance, length, type Vec } from "../geometry/vec";
+import { angleBetween, angleDelta, distance, length, lerp, type Vec } from "../geometry/vec";
 import { placedShape } from "./scene";
 
 /**
@@ -17,8 +19,10 @@ const CONTACT_SLACK = 0.5;
 /** Largest distance any point of the piece moves between two collision samples along a path, mm. */
 const SWEEP_STEP = 0.75;
 const MAX_SWEEP_SAMPLES = 400;
-/** Bisection rounds once a sample hits: the stop lies within SWEEP_STEP / 2^12 of true contact. */
-const BISECT_ROUNDS = 12;
+/** How close to true contact a sweep stops, mm. */
+const CONTACT_PRECISION = 0.005;
+/** Rings searched around a crowded drop before giving up and placing it beside everything. */
+const FREE_SEARCH_RINGS = 48;
 
 export interface Obstacles {
   margin: number;
@@ -71,11 +75,7 @@ function radius(local: Polygon): number {
   return r;
 }
 
-const lerpPose = (a: Pose, b: Pose, t: number): Pose => ({
-  x: a.x + (b.x - a.x) * t,
-  y: a.y + (b.y - a.y) * t,
-  rotation: a.rotation + (b.rotation - a.rotation) * t,
-});
+const lerpPose = (a: Pose, b: Pose, t: number): Pose => ({ ...lerp(a, b, t), rotation: a.rotation + (b.rotation - a.rotation) * t });
 
 /**
  * Moves from the free pose `from` toward `to` along `path` (t from 0 to 1), stopping just short of the first contact.
@@ -90,6 +90,8 @@ function sweep(
 ): { pose: Pose; blocker: EdgeIndex | null } {
   const travel = distance(from, to) + Math.abs(to.rotation - from.rotation) * radius(local);
   const samples = Math.min(MAX_SWEEP_SAMPLES, Math.max(1, Math.ceil(travel / SWEEP_STEP)));
+  // Halve the hit interval until it spans under CONTACT_PRECISION of travel.
+  const rounds = Math.max(1, Math.ceil(Math.log2(travel / samples / CONTACT_PRECISION)));
   let free = 0;
   for (let k = 1; k <= samples; k++) {
     const t = k / samples;
@@ -100,7 +102,7 @@ function sweep(
     }
     let hit = t;
     let stopper = blocker;
-    for (let r = 0; r < BISECT_ROUNDS; r++) {
+    for (let r = 0; r < rounds; r++) {
       const mid = (free + hit) / 2;
       const b = firstClash(obs, posed(local, path(mid)));
       if (b) {
@@ -118,34 +120,41 @@ export interface DragRules {
   autoRotate: boolean;
 }
 
-/**
- * The pose a dragged piece takes when the pointer asks for `target`, given where it is now (`current`) and the point
- * it is held by (`grabLocal`). Without obstacles, or while the piece already sits in a conflict (overlap was switched
- * off with pieces overlapping, or it is coming in from the tray), it simply follows.
- */
-export function constrainMove(rules: DragRules, local: Polygon, current: Pose, target: Pose, grabLocal: Vec, pointer: Vec): Pose {
-  const obs = rules.obstacles;
-  if (!obs || isFree(obs, local, target) || !isFree(obs, local, current)) return target;
-  const { pose: stopped, blocker } = sweep(obs, local, current, target);
-  if (!blocker || !rules.autoRotate) return stopped;
-  // Swing about the contact point so the grab point turns toward the pointer, as a card pushed past a corner does.
-  const contact = nearestApproach(posed(local, stopped).outline, blocker);
-  if (!contact) return stopped;
-  const pivot = contact.at;
-  const grab = localToWorld(grabLocal, stopped);
-  if (distance(pivot, grab) < 1e-6) return stopped;
-  const turn = angleDelta(angleBetween(pivot, grab), angleBetween(pivot, pointer));
-  if (Math.abs(turn) < 1e-6) return stopped;
-  const swung = (t: number) => rotatePoseAbout(stopped, pivot, turn * t);
-  return sweep(obs, local, stopped, swung(1), swung).pose;
+/** A constrained pose, and whether it keeps the margin (false only while a piece is still in a conflict). */
+export interface Moved {
+  pose: Pose;
+  clear: boolean;
 }
 
-/** A turn of a held or selected piece by `delta` about `pivot`, stopped at the first contact. */
-export function constrainTurn(obstacles: Obstacles | null, local: Polygon, current: Pose, pivot: Vec, delta: number): Pose {
-  const target = rotatePoseAbout(current, pivot, delta);
-  if (!obstacles || !isFree(obstacles, local, current)) return target;
-  const turned = (t: number) => rotatePoseAbout(current, pivot, delta * t);
-  return sweep(obstacles, local, current, target, turned).pose;
+/**
+ * The pose a dragged piece takes when the pointer asks for `target`, given where it is now (`current`, `clear` if it
+ * keeps the margin) and the point it is held by (`grabLocal`). Without obstacles, or while the piece is still in a
+ * conflict (overlap was switched off with pieces overlapping, or it is coming in from the tray), it simply follows.
+ */
+export function constrainMove(rules: DragRules, local: Polygon, current: Moved, target: Pose, grabLocal: Vec, pointer: Vec): Moved {
+  const obs = rules.obstacles;
+  if (!obs || isFree(obs, local, target)) return { pose: target, clear: true };
+  if (!current.clear) return { pose: target, clear: false };
+  const { pose: stopped, blocker } = sweep(obs, local, current.pose, target);
+  if (!blocker || !rules.autoRotate) return { pose: stopped, clear: true };
+  // Swing about the contact point so the grab point turns toward the pointer, as a card pushed past a corner does.
+  const contact = nearestApproach(posed(local, stopped).outline, blocker);
+  const grab = localToWorld(grabLocal, stopped);
+  if (!contact || distance(contact.at, grab) < 1e-6) return { pose: stopped, clear: true };
+  const pivot = contact.at;
+  const turn = angleDelta(angleBetween(pivot, grab), angleBetween(pivot, pointer));
+  if (Math.abs(turn) < 1e-6) return { pose: stopped, clear: true };
+  const swung = (t: number) => rotatePoseAbout(stopped, pivot, turn * t);
+  return { pose: sweep(obs, local, stopped, swung(1), swung).pose, clear: true };
+}
+
+/** A turn by `delta` about `pivot`, stopped at the first contact unless the piece is still in a conflict. */
+export function constrainTurn(obs: Obstacles | null, local: Polygon, current: Moved, pivot: Vec, delta: number): Moved {
+  const target = rotatePoseAbout(current.pose, pivot, delta);
+  if (!obs) return { pose: target, clear: true };
+  if (!current.clear) return { pose: target, clear: isFree(obs, local, target) };
+  const turned = (t: number) => rotatePoseAbout(current.pose, pivot, delta * t);
+  return { pose: sweep(obs, local, current.pose, target, turned).pose, clear: true };
 }
 
 /**
@@ -157,8 +166,7 @@ export function nearestFree(obs: Obstacles | null, local: Polygon, pose: Pose): 
   const here = posed(local, pose);
   const size = Math.max(here.bounds.maxX - here.bounds.minX, here.bounds.maxY - here.bounds.minY);
   const step = Math.min(Math.max(size / 8, 1, obs.margin / 2), 10);
-  const rings = 48;
-  for (let r = 1; r <= rings; r++) {
+  for (let r = 1; r <= FREE_SEARCH_RINGS; r++) {
     const dist = r * step;
     const count = Math.max(8, Math.ceil((2 * Math.PI * dist) / step));
     for (let k = 0; k < count; k++) {
@@ -171,4 +179,29 @@ export function nearestFree(obs: Obstacles | null, local: Polygon, pose: Pose): 
   let maxX = -Infinity;
   for (const ix of obs.items) maxX = Math.max(maxX, ix.bounds.maxX);
   return { ...pose, x: pose.x + (maxX - here.bounds.minX) + obs.margin + 1 };
+}
+
+/*
+ * Document operations under the board's rules: every committed move of a placement goes through these, so the
+ * no-overlap rule holds whichever control asked for the move. Live drag previews use `constrainMove` directly.
+ */
+
+/** Moves a placement to `pose`, or to the nearest free spot when that one would crowd another piece. */
+export function moveFree(doc: MosaicDocument, id: string, pose: Pose): MosaicDocument {
+  const local = pieceOutline(getPiece(doc, getPlacement(doc, id).pieceId));
+  return movePlacement(doc, id, nearestFree(obstaclesFor(doc, id), local, pose));
+}
+
+/** Places a piece at `pose`, or at the nearest free spot. */
+export function placeFree(doc: MosaicDocument, pieceId: string, pose: Pose, id?: string): { doc: MosaicDocument; id: string } {
+  return placePiece(doc, pieceId, nearestFree(obstaclesFor(doc), pieceOutline(getPiece(doc, pieceId)), pose), id);
+}
+
+/** Turns a placement by `delta` about its centre, stopping where it meets a neighbour. */
+export function turnFree(doc: MosaicDocument, id: string, delta: number): MosaicDocument {
+  const pl = getPlacement(doc, id);
+  const local = pieceOutline(getPiece(doc, pl.pieceId));
+  const obs = obstaclesFor(doc, id);
+  const current = { pose: pl.pose, clear: isFree(obs, local, pl.pose) };
+  return movePlacement(doc, id, constrainTurn(obs, local, current, pl.pose, delta).pose);
 }

@@ -126,7 +126,8 @@ describe("no-overlap dragging", () => {
     const rules = { obstacles: obstaclesFor(doc), autoRotate: false };
     const start: Pose = { x: -80, y: 0, rotation: 0 };
     const target: Pose = { x: -5, y: 0, rotation: 0 };
-    const pose = constrainMove(rules, outline, start, target, { x: 0, y: 0 }, target);
+    const { pose, clear } = constrainMove(rules, outline, { pose: start, clear: true }, target, { x: 0, y: 0 }, target);
+    expect(clear).toBe(true);
     expect(pose.rotation).toBe(0);
     expect(pose.x).toBeLessThan(-5);
     const gap = gapBetween(outline, pose, origin);
@@ -138,7 +139,8 @@ describe("no-overlap dragging", () => {
     const { doc, outline } = board(2);
     const rules = { obstacles: obstaclesFor(doc), autoRotate: true };
     const target: Pose = { x: 80, y: 0, rotation: 0 };
-    expect(constrainMove(rules, outline, { x: -80, y: 0, rotation: 0 }, target, { x: 0, y: 0 }, target)).toEqual(target);
+    const current = { pose: { x: -80, y: 0, rotation: 0 }, clear: true };
+    expect(constrainMove(rules, outline, current, target, { x: 0, y: 0 }, target)).toEqual({ pose: target, clear: true });
   });
 
   it("swings about the contact point toward the pointer with auto-rotate on", () => {
@@ -151,7 +153,7 @@ describe("no-overlap dragging", () => {
     const start: Pose = { x: fixed.minX - 30, y: cy, rotation: Math.PI / 4 };
     const target: Pose = { x: fixed.minX, y: cy, rotation: Math.PI / 4 };
     const pointer: Vec = { x: fixed.minX, y: cy - 20 };
-    const pose = constrainMove(rules, diamond, start, target, { x: 0, y: 0 }, pointer);
+    const { pose } = constrainMove(rules, diamond, { pose: start, clear: true }, target, { x: 0, y: 0 }, pointer);
     // It swings about the corner toward the pointer, until a side would come within the margin: under 45° more.
     const turned = Math.abs(pose.rotation - Math.PI / 4);
     expect(turned).toBeGreaterThan(0.1);
@@ -164,7 +166,8 @@ describe("no-overlap dragging", () => {
     const { doc, outline } = board(2);
     const rules = { obstacles: obstaclesFor(doc), autoRotate: true };
     const target: Pose = { x: 3, y: 2, rotation: 0 };
-    expect(constrainMove(rules, outline, { x: 1, y: 1, rotation: 0 }, target, { x: 0, y: 0 }, target)).toEqual(target);
+    const current = { pose: { x: 1, y: 1, rotation: 0 }, clear: false };
+    expect(constrainMove(rules, outline, current, target, { x: 0, y: 0 }, target)).toEqual({ pose: target, clear: false });
   });
 
   it("stops a turn at contact", () => {
@@ -174,7 +177,7 @@ describe("no-overlap dragging", () => {
     const b = polygonBounds(outline);
     const start: Pose = { x: b.maxX - b.minX + 1.5, y: 0, rotation: 0 };
     expect(isFree(obstacles, outline, start)).toBe(true);
-    const pose = constrainTurn(obstacles, outline, start, start, Math.PI / 4);
+    const { pose } = constrainTurn(obstacles, outline, { pose: start, clear: true }, start, Math.PI / 4);
     expect(pose.rotation).toBeGreaterThan(0);
     expect(pose.rotation).toBeLessThan(Math.PI / 4);
     expect(isFree(obstacles, outline, pose)).toBe(true);
