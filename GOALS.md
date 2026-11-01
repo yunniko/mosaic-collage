@@ -49,7 +49,7 @@
     `assets/ATTRIBUTION.md` (VALUES.md → Integrity of work).
 
 **Milestones** (accepted by the Owner 2026-11-01; the only deploy is M6's, to `mosaic.app.julienika.cz` on the Contabo VPS):
-- [ ] M1 — **Foundation.**
+- [x] M1 — **Foundation.**
   - Next.js static app with the cutboard and workboard views, both drawn as tables; pan and zoom.
   - The document model: pieces as templates, placements, versioned schema.
   - Predefined shapes with a plain colour.
@@ -86,6 +86,25 @@
     an nginx vhost and a TLS certificate through `julai-new-vhost`), checked live.
 
 **Progress log** (newest first):
+- 2026-11-01 — **M1 done** (0ff5e1c). Built:
+  - the cutboard, with predefined shapes in plain colour;
+  - the workboard: tray drag or click to place; move, wheel and two-finger turn, select, lock, z-order, delete;
+  - undo and redo;
+  - `.mosaic` save and open;
+  - CI on GitHub;
+  - the public repo `yunniko/mosaic-collage`.
+
+  Lock-once-placed and "duplicate as new" (planned for M2) were built here too.
+
+  Check-in:
+  - /simplify: about 20 clean-ups.
+  - /code-review: 7 findings, 5 fixed.
+  - Exercising the app found a tray-drag wheel turning the piece twice per notch. Fixed, with an e2e check.
+
+  Verified: unit 42/42; e2e 13/13 (chromium 6, firefox 6, tablet touch 1); tsc, eslint, prettier clean;
+  next build ok; no console errors while exercising both boards.
+
+  Next: M2, shapes.
 - 2026-11-01 — The Owner accepted the plan ("accept the plan; add it to github public repo and once built
   deploy to mosaic.app.julienika.cz"). That adds a public repo (M1) and a deploy (M6); D005 supersedes D003's
   "no deploy". No milestone is marked for review, so the goal runs through all six.
