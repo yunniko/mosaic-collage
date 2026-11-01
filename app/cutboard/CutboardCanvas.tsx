@@ -28,6 +28,7 @@ export function CutboardCanvas() {
   const selected = useAppState((s) => s.selectedPieceId);
   const piece = doc.pieces.find((p) => p.id === selected) ?? null;
   const cutting = useCutting();
+  const textureVersion = useAppState((s) => s.textureVersion);
   // The stroke being drawn lives in a ref and is repainted at most once a frame, not copied into state per move.
   const strokeRef = useRef<Vec[] | null>(null);
   const [strokeFrame, setStrokeFrame] = useState(0);
@@ -81,7 +82,7 @@ export function CutboardCanvas() {
     const stroke = strokeRef.current;
     if (piece && !(cutting && stroke)) drawPiece(ctx, piece, cam, width, height, cutting ? 0.3 : 1);
     if (stroke) drawStroke(ctx, stroke, cam, width, height);
-  }, [piece, cam, width, height, cutting, strokeFrame]);
+  }, [piece, cam, width, height, cutting, strokeFrame, textureVersion]);
 
   // The handlers below are bound once per board size; they read the latest render through this ref.
   const live = useRef({ cam, piece, cutting });

@@ -67,6 +67,9 @@ export const BLEND_MODES = [
 ] as const;
 export type BlendMode = (typeof BLEND_MODES)[number];
 
+/** The most colour layers a piece keeps: the editor stops adding at this, and the file reader drops any beyond it. */
+export const MAX_COLOR_LAYERS = 16;
+
 /** Colour changes applied over the texture, in order. */
 export type ColorLayer =
   | { kind: "tint"; color: string; mode: BlendMode; opacity: number }

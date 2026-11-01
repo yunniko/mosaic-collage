@@ -8,10 +8,16 @@ import type { AssetStore, MosaicDocument } from "@/lib/document/types";
 
 export type View = "cutboard" | "workboard";
 
+/** A message key under the root of the messages, with its values: for notices raised where no translator is at hand. */
+export interface MessageRef {
+  key: string;
+  values?: Record<string, string | number>;
+}
+
 export interface Notice {
   id: number;
   kind: "info" | "error";
-  text: string;
+  text: string | MessageRef;
 }
 
 export interface AppState {
@@ -26,6 +32,8 @@ export interface AppState {
   notices: Notice[];
   /** Bumped by "fit to view" so the boards re-frame their content. */
   fitRequest: number;
+  /** Bumped whenever an image or PDF texture finishes decoding, so everything drawn with a stand-in redraws. */
+  textureVersion: number;
 }
 
 type Listener = () => void;
@@ -41,6 +49,7 @@ class Store {
     cuttingPieceId: null,
     notices: [],
     fitRequest: 0,
+    textureVersion: 0,
   };
   private listeners = new Set<Listener>();
   private noticeId = 0;
@@ -134,7 +143,7 @@ class Store {
     this.set({ assets });
   }
 
-  notify(kind: Notice["kind"], text: string) {
+  notify(kind: Notice["kind"], text: Notice["text"]) {
     const notice = { id: ++this.noticeId, kind, text };
     this.set({ notices: [...this.state.notices, notice].slice(-4) });
     setTimeout(() => this.dismiss(notice.id), kind === "error" ? 7000 : 4000);

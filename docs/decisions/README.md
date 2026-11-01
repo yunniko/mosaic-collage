@@ -9,3 +9,4 @@
 - D007 — A hand cut stores its raw stroke; the outline is derived — active
 - D008 — A self-crossing cut keeps its largest part, or is refused — active
 - D009 — With overlap off, a dragged piece stops at contact, swings, or jumps to free space — active
+- D010 — Textures are sampled per pixel in lib/; images and PDF pages are decoded once in the app — active

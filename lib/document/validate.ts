@@ -10,6 +10,7 @@ import {
   type BoardSettings,
   type ColorLayer,
   DOCUMENT_VERSION,
+  MAX_COLOR_LAYERS,
   type MosaicDocument,
   type Params,
   type Piece,
@@ -102,7 +103,7 @@ function textureTransform(v: unknown): TextureTransform {
 function colorLayers(v: unknown): ColorLayer[] {
   if (!Array.isArray(v)) return [];
   const out: ColorLayer[] = [];
-  for (const l of v.slice(0, 16)) {
+  for (const l of v.slice(0, MAX_COLOR_LAYERS)) {
     if (!isObj(l)) continue;
     if (l.kind === "tint")
       out.push({

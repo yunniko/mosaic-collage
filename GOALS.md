@@ -86,6 +86,11 @@
     an nginx vhost and a TLS certificate through `julai-new-vhost`), checked live.
 
 **Progress log** (newest first):
+- 2026-11-01 — M4 started. **BLOCKED:** may I download the bundled image textures? Four CC0 zips from
+  ambientcg.com (licence: CC0 1.0, no attribution required): Paper001_1K-JPG.zip (5.0 MB),
+  Paper003_1K-JPG.zip (2.5 MB), Paper005_1K-JPG.zip (5.4 MB), Cardboard001_1K-JPG.zip (6.7 MB). Only each
+  colour map is kept, re-encoded to about 200 KB in `public/textures/`, recorded in `assets/ATTRIBUTION.md`.
+  Everything else in M4 goes on meanwhile; without approval the predefined set is generated textures only.
 - 2026-11-01 — **M3 done** (d1ecf75). Built:
   - exact-outline clearance with a per-outline edge grid (`lib/geometry/collision.ts`), checked against an
     all-pairs reference on 300 generated cases;

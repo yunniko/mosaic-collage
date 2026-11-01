@@ -5,6 +5,7 @@ import { isPiecePlaced, placementCount, renamePiece, updatePiece } from "@/lib/d
 import type { Piece } from "@/lib/document/types";
 import { errorText } from "../state/errors";
 import { store, useAppState, useDoc } from "../state/store";
+import { ColorSection } from "./sections/ColorSection";
 import { ShapeSection } from "./sections/ShapeSection";
 import { TextureSection } from "./sections/TextureSection";
 
@@ -56,6 +57,7 @@ export function PieceEditor() {
       ) : null}
       <ShapeSection piece={piece} disabled={placed} onChange={onChange} />
       <TextureSection piece={piece} disabled={placed} onChange={onChange} />
+      <ColorSection piece={piece} disabled={placed} onChange={onChange} />
       <button type="button" className="btn mt-auto self-start" onClick={() => store.set({ view: "workboard" })}>
         {t("editor.toWorkboard")}
       </button>

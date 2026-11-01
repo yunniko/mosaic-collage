@@ -53,6 +53,7 @@ interface StaticLayer {
   h: number;
   doc: MosaicDocument;
   exclude: string | null;
+  textureVersion: number;
 }
 
 export function WorkboardCanvas() {
@@ -357,7 +358,10 @@ export function WorkboardCanvas() {
   );
 }
 
-/** The cached layer of all pieces but `exclude`; rebuilt only when the document, the view or the excluded piece changes. */
+/**
+ * The cached layer of all pieces but `exclude`; rebuilt only when the document, the view, the excluded piece or a
+ * decoded texture changes.
+ */
 function staticLayer(
   ref: React.RefObject<StaticLayer | null>,
   doc: MosaicDocument,
@@ -367,7 +371,17 @@ function staticLayer(
   exclude: string | null
 ): HTMLCanvasElement {
   const cur = ref.current;
-  if (cur && cur.doc === doc && cur.exclude === exclude && cur.w === w && cur.h === h && sameCam(cur.cam, cam)) return cur.canvas;
+  const { textureVersion } = store.getState();
+  if (
+    cur &&
+    cur.doc === doc &&
+    cur.exclude === exclude &&
+    cur.textureVersion === textureVersion &&
+    cur.w === w &&
+    cur.h === h &&
+    sameCam(cur.cam, cam)
+  )
+    return cur.canvas;
   const canvas = cur?.canvas ?? document.createElement("canvas");
   const ctx = prepareCanvas(canvas, w, h);
   ctx.clearRect(0, 0, w, h);
@@ -375,7 +389,7 @@ function staticLayer(
   applyCamera(ctx, cam, w, h);
   drawPlacements(ctx, doc, exclude ? doc.placements.filter((p) => p.id !== exclude) : doc.placements, cam, viewBounds(cam, w, h));
   ctx.restore();
-  ref.current = { canvas, cam: { ...cam }, w, h, doc, exclude };
+  ref.current = { canvas, cam: { ...cam }, w, h, doc, exclude, textureVersion };
   return canvas;
 }
 

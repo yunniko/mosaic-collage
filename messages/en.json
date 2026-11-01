@@ -48,7 +48,29 @@
     "color": "Colour",
     "toWorkboard": "Go to workboard",
     "generator": "Generator",
-    "reroll": "New variation"
+    "reroll": "New variation",
+    "textureGenerated": "Generated",
+    "textureFile": "Image or PDF…",
+    "colorStop": "Colour {n}",
+    "replaceFile": "Replace file…",
+    "pdfPage": "PDF page",
+    "pdfPageOf": "PDF page (of {count})",
+    "offsetX": "Shift across",
+    "offsetY": "Shift down",
+    "textureScale": "Texture scale",
+    "textureRotation": "Texture angle",
+    "colorLayers": "Colour layers",
+    "noColorLayers": "None yet. Add a tint or a hue/saturation shift over the texture.",
+    "layerTint": "Tint",
+    "layerHsl": "Hue / saturation",
+    "removeLayer": "Remove",
+    "blendMode": "Blend mode",
+    "opacity": "Opacity",
+    "hue": "Hue",
+    "saturation": "Saturation",
+    "lightness": "Lightness",
+    "addTint": "Add tint",
+    "addHsl": "Add hue/saturation"
   },
   "shapes": {
     "rectangle": "Rectangle",
@@ -87,13 +109,29 @@
     "length": "Length",
     "amplitude": "Wave height",
     "wavelength": "Wavelength",
-    "stabilization": "Stabilisation"
+    "stabilization": "Stabilisation",
+    "featureSize": "Feature size",
+    "detail": "Detail",
+    "contrast": "Contrast",
+    "fibreLength": "Fibre length",
+    "fibres": "Fibres",
+    "turbulence": "Turbulence",
+    "veinSharpness": "Vein sharpness",
+    "stripePeriod": "Stripe spacing",
+    "stripeRatio": "Stripe width",
+    "softness": "Softness",
+    "ringSpacing": "Ring spacing",
+    "warp": "Warp",
+    "grain": "Grain",
+    "density": "Density",
+    "threadWidth": "Thread width"
   },
   "units": {
     "mm": "mm",
     "deg": "°",
     "percent": "%",
-    "count": ""
+    "count": "",
+    "times": "×"
   },
   "workboard": {
     "tray": "Tray",
@@ -128,11 +166,41 @@
     "outline-too-few-points": "That cut is too short to make a piece. Draw a closed outline.",
     "outline-too-small": "That piece would be too small. Draw a larger outline.",
     "outline-splits": "That outline crosses itself into separate pieces. Draw it as one loop.",
-    "outline-not-simple": "That outline crosses itself. Draw it as one loop."
+    "outline-not-simple": "That outline crosses itself. Draw it as one loop.",
+    "texture-type": "That file is not an image or a PDF.",
+    "texture-too-big": "That file is over {mb} MB. Use a smaller image or PDF.",
+    "texture-unreadable": "“{name}” could not be read as a texture."
   },
   "cut": {
     "again": "Cut again",
     "hint": "Draw the outline in one stroke. Wheel or two fingers move the view; Esc cancels.",
     "cancel": "Cancel"
+  },
+  "textures": {
+    "paper": "Handmade paper",
+    "clouds": "Clouds",
+    "marble": "Marble",
+    "wood": "Wood",
+    "granite": "Granite",
+    "weave": "Woven cloth",
+    "stripes": "Stripes"
+  },
+  "blend": {
+    "normal": "Normal",
+    "multiply": "Multiply",
+    "screen": "Screen",
+    "overlay": "Overlay",
+    "darken": "Darken",
+    "lighten": "Lighten",
+    "color-dodge": "Colour dodge",
+    "color-burn": "Colour burn",
+    "hard-light": "Hard light",
+    "soft-light": "Soft light",
+    "difference": "Difference",
+    "exclusion": "Exclusion",
+    "hue": "Hue",
+    "saturation": "Saturation",
+    "color": "Colour",
+    "luminosity": "Luminosity"
   }
 }

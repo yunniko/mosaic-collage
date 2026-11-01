@@ -3,6 +3,7 @@
 import type { Piece } from "@/lib/document/types";
 import { type PieceSprite, renderPiece } from "@/lib/render/piece";
 import { pieceOutline } from "@/lib/shapes/outline";
+import { lookupTextureImage } from "./texture-images";
 
 /** A rendered piece uploaded to a canvas; the RGBA buffer is not kept. Origin and scale as in `PieceSprite`. */
 export interface CanvasSprite {
@@ -34,7 +35,8 @@ function spriteToCanvas(sprite: PieceSprite): HTMLCanvasElement {
 
 /**
  * The piece rendered at the step for `pxPerMm`. Pieces are replaced rather than mutated, and placed pieces never
- * change (D002), so a cached sprite is valid for as long as its piece object lives.
+ * change (D002), so a cached sprite is valid for as long as its piece object lives. A sprite drawn while its image
+ * texture is still decoding is a stand-in and is not cached; `textureVersion` tells the boards to ask again.
  */
 export function getSprite(piece: Piece, pxPerMm: number): CanvasSprite {
   const step = scaleStep(pxPerMm);
@@ -45,9 +47,9 @@ export function getSprite(piece: Piece, pxPerMm: number): CanvasSprite {
   }
   let s = byStep.get(step);
   if (!s) {
-    const sprite = renderPiece(piece, pieceOutline(piece), step);
+    const sprite = renderPiece(piece, pieceOutline(piece), step, lookupTextureImage);
     s = { canvas: spriteToCanvas(sprite), scale: sprite.scale, originX: sprite.originX, originY: sprite.originY };
-    byStep.set(step, s);
+    if (!sprite.pending) byStep.set(step, s);
   }
   return s;
 }
