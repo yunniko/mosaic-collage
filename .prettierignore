@@ -1,0 +1,10 @@
+.next/
+out/
+node_modules/
+playwright-report/
+test-results/
+coverage/
+package-lock.json
+public/pdf.worker.min.mjs
+# Markdown is hand-wrapped: HANDOVER.md and decision files have caps that a reflow would change.
+*.md

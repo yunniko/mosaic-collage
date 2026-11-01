@@ -1,0 +1,144 @@
+"use client";
+
+import { useSyncExternalStore } from "react";
+import { createDocument } from "@/lib/document/defaults";
+import { type History, commit, createHistory, redo, replacePresent, undo } from "@/lib/document/history";
+import type { AssetStore, MosaicDocument } from "@/lib/document/types";
+
+export type View = "cutboard" | "workboard";
+
+export interface Notice {
+  id: number;
+  kind: "info" | "error";
+  text: string;
+}
+
+export interface AppState {
+  history: History<MosaicDocument>;
+  /** Uploaded asset bytes. Replaced (never mutated) when assets are added, so subscribers see the change. */
+  assets: AssetStore;
+  view: View;
+  selectedPieceId: string | null;
+  selectedPlacementIds: string[];
+  notices: Notice[];
+  /** Bumped by "fit to view" so the boards re-frame their content. */
+  fitRequest: number;
+}
+
+type Listener = () => void;
+
+/** The app's single store: the document's undo history plus the view state around it. */
+class Store {
+  private state: AppState = {
+    history: createHistory(createDocument()),
+    assets: new Map(),
+    view: "cutboard",
+    selectedPieceId: null,
+    selectedPlacementIds: [],
+    notices: [],
+    fitRequest: 0,
+  };
+  private listeners = new Set<Listener>();
+  private noticeId = 0;
+
+  getState = () => this.state;
+
+  subscribe = (l: Listener) => {
+    this.listeners.add(l);
+    return () => {
+      this.listeners.delete(l);
+    };
+  };
+
+  set(patch: Partial<AppState>) {
+    this.state = { ...this.state, ...patch };
+    for (const l of this.listeners) l();
+  }
+
+  get doc() {
+    return this.state.history.present;
+  }
+
+  /** Applies a document change as one undo step. A refused change (it throws) is reported and leaves the document alone. */
+  apply(change: (doc: MosaicDocument) => MosaicDocument, onError?: (e: unknown) => void): boolean {
+    try {
+      const next = change(this.doc);
+      this.set({ history: commit(this.state.history, next) });
+      return true;
+    } catch (e) {
+      if (onError) onError(e);
+      else throw e;
+      return false;
+    }
+  }
+
+  private lastKey = "";
+  private lastTime = 0;
+
+  /**
+   * Like `apply`, but consecutive changes with the same `key` within a moment fold into one undo step, so dragging a
+   * slider is one step rather than hundreds.
+   */
+  applyCoalesced(key: string, change: (doc: MosaicDocument) => MosaicDocument, onError?: (e: unknown) => void): boolean {
+    const now = performance.now();
+    const fold = key === this.lastKey && now - this.lastTime < 1000 && this.state.history.past.length > 0;
+    this.lastKey = key;
+    this.lastTime = now;
+    if (!fold) return this.apply(change, onError);
+    try {
+      this.set({ history: replacePresent(this.state.history, change(this.doc)) });
+      return true;
+    } catch (e) {
+      if (onError) onError(e);
+      else throw e;
+      return false;
+    }
+  }
+
+  undo() {
+    this.set({ history: undo(this.state.history), selectedPlacementIds: [] });
+  }
+
+  redo() {
+    this.set({ history: redo(this.state.history), selectedPlacementIds: [] });
+  }
+
+  /** Starts over with a new document (a loaded file or "New"): history and selection are cleared. */
+  replaceDocument(doc: MosaicDocument, assets: AssetStore) {
+    this.set({
+      history: createHistory(doc),
+      assets,
+      selectedPieceId: doc.pieces[0]?.id ?? null,
+      selectedPlacementIds: [],
+      fitRequest: this.state.fitRequest + 1,
+    });
+  }
+
+  addAssetBytes(id: string, bytes: Uint8Array) {
+    const assets = new Map(this.state.assets);
+    assets.set(id, bytes);
+    this.set({ assets });
+  }
+
+  notify(kind: Notice["kind"], text: string) {
+    const notice = { id: ++this.noticeId, kind, text };
+    this.set({ notices: [...this.state.notices, notice].slice(-4) });
+    setTimeout(() => this.dismiss(notice.id), kind === "error" ? 7000 : 4000);
+  }
+
+  dismiss(id: number) {
+    this.set({ notices: this.state.notices.filter((n) => n.id !== id) });
+  }
+}
+
+export const store = new Store();
+
+export function useAppState<T>(select: (s: AppState) => T): T {
+  return useSyncExternalStore(
+    store.subscribe,
+    () => select(store.getState()),
+    () => select(store.getState())
+  );
+}
+
+export const useDoc = () => useAppState((s) => s.history.present);

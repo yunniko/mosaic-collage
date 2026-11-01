@@ -1,6 +1,6 @@
 # Goals — mosaic-collage
 
-### G-001 · Mosaic/collage creator, first complete version — DRAFT
+### G-001 · Mosaic/collage creator, first complete version — ACTIVE
 - **What:** A browser app with two boards drawn as tables. The **cutboard** is where pieces are made:
   their shape, texture, colour, surface relief and edge. The **workboard** is where the finished pieces
   are placed, moved, rotated and locked on a background to build a mosaic. The mosaic is saved and
@@ -42,12 +42,13 @@
   11. Works with mouse and touch in current Chrome, Firefox and Edge. The interface is in English and set
       up for translation (Owner, 2026-11-01).
 - **Constraints:**
-  - Local only: it runs in the browser with no server and no accounts. A deploy would be a later goal
-    (Owner, 2026-11-01).
+  - No backend: it runs entirely in the browser, with no server-side code and no accounts (D003). It is
+    served as a static site at `mosaic.app.julienika.cz` (Owner, 2026-11-01; D005).
+  - Source in a public GitHub repo, `yunniko/mosaic-collage` (Owner, 2026-11-01).
   - Bundled textures and fonts must carry licences that allow use and redistribution, recorded in
     `assets/ATTRIBUTION.md` (VALUES.md → Integrity of work).
 
-**Milestones** (proposed 2026-11-01, awaiting the Owner's acceptance; no deploy in any milestone):
+**Milestones** (accepted by the Owner 2026-11-01; the only deploy is M6's, to `mosaic.app.julienika.cz` on the Contabo VPS):
 - [ ] M1 — **Foundation.**
   - Next.js static app with the cutboard and workboard views, both drawn as tables; pan and zoom.
   - The document model: pieces as templates, placements, versioned schema.
@@ -55,6 +56,7 @@
   - Place, move, select, lock and unlock pieces on the workboard, overlap allowed only.
   - Save and load the editable file.
   - CI: format, lint, unit and e2e.
+  - Public GitHub repo `yunniko/mosaic-collage` with the code pushed.
 - [ ] M2 — **Shapes.**
   - Generator registry with its first algorithms: irregular polygon, shard/Voronoi cell, organic blob,
     wave-edged strip.
@@ -80,8 +82,13 @@
   - Background colour, texture or uploaded picture.
   - JPG export, and PNG export with or without the background, at a chosen resolution.
   - Full QA pass, README and handover final.
+  - **Deploy:** a static build served at `https://mosaic.app.julienika.cz` (a container bound to 127.0.0.1,
+    an nginx vhost and a TLS certificate through `julai-new-vhost`), checked live.
 
 **Progress log** (newest first):
+- 2026-11-01 — The Owner accepted the plan ("accept the plan; add it to github public repo and once built
+  deploy to mosaic.app.julienika.cz"). That adds a public repo (M1) and a deploy (M6); D005 supersedes D003's
+  "no deploy". No milestone is marked for review, so the goal runs through all six.
 - 2026-11-01 — Goal created from the Owner's description. The Owner answered four questions about
   scope: pieces are templates (D002), placed pieces are locked (D002), the app is local only (D003),
   English and ready for translation (D004). Stack: D001. Plan presented; waiting for the Owner's

@@ -1,0 +1,112 @@
+{
+  "app": {
+    "title": "Mosaic Studio",
+    "tagline": "Cut pieces, then lay your mosaic."
+  },
+  "nav": {
+    "cutboard": "Cutboard",
+    "workboard": "Workboard"
+  },
+  "file": {
+    "new": "New",
+    "open": "Open…",
+    "save": "Save",
+    "export": "Export…",
+    "undo": "Undo",
+    "redo": "Redo",
+    "documentName": "Mosaic name",
+    "confirmNew": "Start a new mosaic? Unsaved changes will be lost.",
+    "saved": "Saved {name}.",
+    "opened": "Opened {name}.",
+    "openFailed": "Could not open this file: {reason}"
+  },
+  "library": {
+    "title": "Pieces",
+    "newPiece": "New piece",
+    "duplicate": "Duplicate as new",
+    "delete": "Delete",
+    "rename": "Piece name",
+    "placedCount": "{count, plural, =0 {not placed} one {placed once} other {placed # times}}",
+    "empty": "No pieces yet. Make one with “New piece”.",
+    "confirmDelete": "Delete “{name}”? It is placed {count, plural, one {once} other {# times}} on the workboard, and those copies go too.",
+    "copyName": "{name} copy"
+  },
+  "editor": {
+    "title": "Piece",
+    "lockedTitle": "This piece is on the workboard",
+    "lockedBody": "Pieces can't change once placed. Use “Duplicate as new” to make an editable variant.",
+    "noPiece": "Select or make a piece to edit it.",
+    "shape": "Shape",
+    "shapeSource": "Shape source",
+    "sourcePredefined": "Predefined",
+    "sourceGenerated": "Generated",
+    "sourceHand": "Hand cut",
+    "shapeKind": "Shape",
+    "texture": "Texture",
+    "textureKind": "Texture",
+    "texturePlain": "Plain colour",
+    "color": "Colour",
+    "toWorkboard": "Go to workboard"
+  },
+  "shapes": {
+    "rectangle": "Rectangle",
+    "ellipse": "Ellipse",
+    "triangle": "Triangle",
+    "regularPolygon": "Regular polygon",
+    "star": "Star",
+    "heart": "Heart",
+    "leaf": "Leaf",
+    "diamond": "Diamond",
+    "arcSegment": "Arc segment"
+  },
+  "params": {
+    "width": "Width",
+    "height": "Height",
+    "cornerRadius": "Corner radius",
+    "apexPosition": "Apex position",
+    "sides": "Sides",
+    "size": "Size",
+    "points": "Points",
+    "innerRatio": "Inner size",
+    "outerRadius": "Outer radius",
+    "thickness": "Thickness",
+    "angle": "Angle"
+  },
+  "units": {
+    "mm": "mm",
+    "deg": "°",
+    "percent": "%",
+    "count": ""
+  },
+  "workboard": {
+    "tray": "Tray",
+    "trayHint": "Drag a piece onto the board, or click it to place it in the middle.",
+    "trayEmpty": "Make pieces on the cutboard first.",
+    "allowOverlap": "Allow overlap",
+    "margin": "Margin",
+    "autoRotate": "Auto-rotate at contact",
+    "shadow": "Shadow",
+    "lock": "Lock",
+    "unlock": "Unlock",
+    "remove": "Remove from board",
+    "front": "Bring to front",
+    "back": "Send to back",
+    "forward": "Bring forward",
+    "backward": "Send backward",
+    "fit": "Fit to view",
+    "selection": "{count, plural, =0 {Nothing selected} one {1 piece selected} other {# pieces selected}}",
+    "emptyBoard": "Your mosaic grows from the pieces you place: there is no fixed canvas size.",
+    "help": "Drag empty table to pan · wheel or pinch to zoom · while dragging a piece, wheel or a second finger turns it",
+    "lockedNotice": "That piece is locked. Unlock it to move it.",
+    "settings": "Board",
+    "view": "View",
+    "keys": "Keys: Delete removes · L locks or unlocks · R turns 15° (Shift: back) · [ ] move back or forward (Shift: to the end) · Esc clears the selection"
+  },
+  "errors": {
+    "piece-placed": "That piece is on the workboard and can't be changed.",
+    "piece-missing": "That piece no longer exists.",
+    "placement-missing": "That placed piece no longer exists.",
+    "placement-locked": "That piece is locked. Unlock it first.",
+    "unknown": "Something went wrong: {message}"
+  }
+}

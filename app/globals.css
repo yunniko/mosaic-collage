@@ -1,0 +1,94 @@
+@import "tailwindcss";
+
+/*
+ * Style (README → Style): system fonts only; warm paper panels on a wooden table; one accent, a deep teal.
+ * The boards themselves are canvases (a cutting mat and a table top), drawn in app/render/surfaces.ts.
+ */
+@theme {
+  --color-paper: #fbf7ef;
+  --color-paper-edge: #e6dccb;
+  --color-ink: #2b2620;
+  --color-ink-soft: #6b6156;
+  --color-accent: #1f6f6a;
+  --color-accent-soft: #d8ece9;
+  --color-danger: #a33a2a;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--color-ink);
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+  /* The table's edge around the panels: a darker wood, plain CSS so the shell paints before any script runs. */
+  background: repeating-linear-gradient(92deg, rgba(0, 0, 0, 0.05) 0 2px, transparent 2px 9px), linear-gradient(180deg, #7a5233, #64422a);
+  overscroll-behavior: none;
+}
+
+.panel {
+  background: var(--color-paper);
+  border: 1px solid var(--color-paper-edge);
+  border-radius: 10px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.5) inset,
+    0 6px 18px rgba(0, 0, 0, 0.25);
+}
+
+.board-frame {
+  border-radius: 12px;
+  box-shadow:
+    0 0 0 3px rgba(0, 0, 0, 0.18),
+    0 10px 30px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 7px;
+  border: 1px solid var(--color-paper-edge);
+  background: white;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  cursor: pointer;
+}
+.btn:hover:not(:disabled) {
+  border-color: var(--color-accent);
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.btn-primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: white;
+}
+.btn-danger:hover:not(:disabled) {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.field-label {
+  font-size: 0.78rem;
+  color: var(--color-ink-soft);
+}
+
+input[type="range"] {
+  accent-color: var(--color-accent);
+}
+
+canvas.board {
+  touch-action: none;
+  display: block;
+}
