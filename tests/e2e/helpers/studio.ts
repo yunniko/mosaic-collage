@@ -11,6 +11,13 @@ export const ui = (page: Page) => ({
   pieceItems: page.getByTestId("piece-item"),
   lockedNote: page.getByTestId("piece-locked-note"),
   shapeKind: page.getByTestId("shape-kind"),
+  shapeSource: page.getByTestId("shape-source"),
+  generatorKind: page.getByTestId("generator-kind"),
+  reroll: page.getByTestId("reroll-seed"),
+  cutAgain: page.getByTestId("cut-again"),
+  cutHint: page.getByTestId("cut-hint"),
+  cutCancel: page.getByTestId("cut-cancel"),
+  cutboard: page.getByTestId("cutboard-canvas"),
   param: (key: string) => page.getByTestId(`param-${key}`),
   textureColor: page.getByTestId("texture-color"),
   undo: page.getByTestId("undo"),
@@ -53,3 +60,24 @@ export async function savedDocument(page: Page): Promise<{ doc: MosaicDocument; 
   const doc = JSON.parse(await zip.file("mosaic.json")!.async("string")) as MosaicDocument;
   return { doc, download };
 }
+
+/** Draws one closed stroke with the mouse through `points`, given as fractions of the locator's box. */
+export async function drawStroke(page: Page, l: Locator, points: [number, number][]) {
+  const b = (await l.boundingBox())!;
+  const at = ([fx, fy]: [number, number]) => ({ x: b.x + fx * b.width, y: b.y + fy * b.height });
+  const first = at(points[0]);
+  await page.mouse.move(first.x, first.y);
+  await page.mouse.down();
+  for (const p of points.slice(1)) {
+    const q = at(p);
+    await page.mouse.move(q.x, q.y, { steps: 6 });
+  }
+  await page.mouse.up();
+}
+
+/** A closed loop of `n` points around (cx, cy), as box fractions. */
+export const loop = (cx: number, cy: number, r: number, n = 24): [number, number][] =>
+  Array.from({ length: n + 1 }, (_, i) => {
+    const t = (i / n) * Math.PI * 2;
+    return [cx + r * Math.cos(t), cy + r * Math.sin(t)];
+  });

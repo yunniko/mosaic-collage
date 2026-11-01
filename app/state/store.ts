@@ -20,6 +20,8 @@ export interface AppState {
   view: View;
   selectedPieceId: string | null;
   selectedPlacementIds: string[];
+  /** The piece being hand-cut on the cutboard; cut mode is on only while that piece is still the selected one. */
+  cuttingPieceId: string | null;
   notices: Notice[];
   /** Bumped by "fit to view" so the boards re-frame their content. */
   fitRequest: number;
@@ -35,6 +37,7 @@ class Store {
     view: "cutboard",
     selectedPieceId: null,
     selectedPlacementIds: [],
+    cuttingPieceId: null,
     notices: [],
     fitRequest: 0,
   };
@@ -115,6 +118,7 @@ class Store {
       assets,
       selectedPieceId: doc.pieces[0]?.id ?? null,
       selectedPlacementIds: [],
+      cuttingPieceId: null,
       fitRequest: this.state.fitRequest + 1,
     });
   }

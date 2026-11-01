@@ -26,8 +26,11 @@ export type Params = Record<string, number>;
 export type ShapeSource =
   | { kind: "predefined"; shapeId: string; params: Params }
   | { kind: "generated"; generatorId: string; params: Params; seed: number }
-  /** A hand-cut outline, already stabilised, simplified and repaired, in millimetres. */
-  | { kind: "hand"; points: Vec[] };
+  /**
+   * A hand cut: the raw stroke in millimetres and the stabilisation (0–100) applied to it. The outline is derived
+   * (`lib/shapes/hand.ts`), so changing the stabilisation re-smooths the same cut. See D007.
+   */
+  | { kind: "hand"; points: Vec[]; stabilization: number };
 
 export type TextureSource =
   | { kind: "plain"; color: string }

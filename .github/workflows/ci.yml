@@ -27,8 +27,8 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run test:unit
-      - run: npm run build
       - run: npx playwright install --with-deps chromium firefox
+      # Builds the static export first, so the suite can never run against a stale `out/`.
       - run: npm run test:e2e
         env:
           CI: "1"

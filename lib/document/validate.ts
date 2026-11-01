@@ -1,4 +1,5 @@
 import type { Vec } from "../geometry/vec";
+import { shapeOutline } from "../shapes/outline";
 import { DEFAULT_BACKGROUND, DEFAULT_BOARD, DEFAULT_RELIEF, DEFAULT_TEXTURE_TRANSFORM, FALLBACK_COLOR, defaultTornEdge } from "./defaults";
 import {
   type AssetMeta,
@@ -62,7 +63,8 @@ function shape(v: unknown): ShapeSource | null {
     return { kind: "generated", generatorId: v.generatorId, params: params(v.params), seed: num(v.seed, 1) >>> 0 };
   if (v.kind === "hand") {
     const pts = points(v.points);
-    return pts ? { kind: "hand", points: pts } : null;
+    // Files from before D007 stored the finished outline; stabilisation 0 keeps it as it was.
+    return pts ? { kind: "hand", points: pts, stabilization: num(v.stabilization, 0, 0, 100) } : null;
   }
   return null;
 }
@@ -158,10 +160,18 @@ function piece(v: unknown, warnings: string[]): Piece | null {
     warnings.push(`A piece with an unreadable ${pid ? "shape" : "id"} was skipped.`);
     return null;
   }
+  const name = str(v.name, "Piece").slice(0, 120);
+  let checked = s;
+  try {
+    shapeOutline(s);
+  } catch {
+    warnings.push(`The shape of "${name}" could not be cut; it was replaced by a rectangle.`);
+    checked = { kind: "predefined", shapeId: "rectangle", params: {} };
+  }
   return {
     id: pid,
-    name: str(v.name, "Piece").slice(0, 120),
-    shape: s,
+    name,
+    shape: checked,
     texture: texture(v.texture),
     textureTransform: textureTransform(v.textureTransform),
     colors: colorLayers(v.colors),

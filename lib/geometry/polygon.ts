@@ -98,16 +98,45 @@ export function segmentsIntersect(a: Vec, b: Vec, c: Vec, d: Vec): boolean {
   return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0));
 }
 
-/** True when no two non-adjacent edges cross. O(n²); outlines are simplified before this is called. */
+/**
+ * True when no two non-adjacent edges cross. Edges are bucketed in a uniform grid and only edges sharing a cell are
+ * compared, so an outline of thousands of points (a fine wave strip, a long hand cut) checks in near-linear time.
+ */
 export function isSimplePolygon(poly: readonly Vec[]): boolean {
   const n = poly.length;
   if (n < 3) return false;
+  const crosses = (i: number, j: number) => {
+    // Adjacent edges share a vertex, which is not a crossing.
+    if (Math.abs(i - j) <= 1 || Math.abs(i - j) === n - 1) return false;
+    return segmentsIntersect(poly[i], poly[(i + 1) % n], poly[j], poly[(j + 1) % n]);
+  };
+  if (n <= 64) {
+    for (let i = 0; i < n; i++) for (let j = i + 2; j < n; j++) if (crosses(i, j)) return false;
+    return true;
+  }
+  const b = polygonBounds(poly);
+  // About one cell per edge: cells side ~ sqrt(area of the bounds / n).
+  const cell = Math.max(Math.sqrt((boundsWidth(b) * boundsHeight(b)) / n), perimeter(poly) / n, 1e-9);
+  const cols = Math.max(1, Math.ceil(boundsWidth(b) / cell));
+  const grid = new Map<number, number[]>();
   for (let i = 0; i < n; i++) {
     const a = poly[i];
-    const b = poly[(i + 1) % n];
-    for (let j = i + 2; j < n; j++) {
-      if (i === 0 && j === n - 1) continue;
-      if (segmentsIntersect(a, b, poly[j], poly[(j + 1) % n])) return false;
+    const c = poly[(i + 1) % n];
+    const x0 = Math.floor((Math.min(a.x, c.x) - b.minX) / cell);
+    const x1 = Math.floor((Math.max(a.x, c.x) - b.minX) / cell);
+    const y0 = Math.floor((Math.min(a.y, c.y) - b.minY) / cell);
+    const y1 = Math.floor((Math.max(a.y, c.y) - b.minY) / cell);
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        const key = y * (cols + 1) + x;
+        const bucket = grid.get(key);
+        if (!bucket) {
+          grid.set(key, [i]);
+          continue;
+        }
+        for (const j of bucket) if (crosses(i, j)) return false;
+        bucket.push(i);
+      }
     }
   }
   return true;
@@ -190,4 +219,47 @@ export function perimeter(poly: readonly Vec[]): number {
     l += Math.hypot(b.x - a.x, b.y - a.y);
   }
   return l;
+}
+
+/** The closed outline resampled to `n` points evenly spaced along its perimeter. */
+export function resampleEven(poly: readonly Vec[], n: number): Polygon {
+  const len = perimeter(poly);
+  if (len === 0 || n < 3) return poly.slice();
+  const step = len / n;
+  const out: Vec[] = [];
+  let i = 0;
+  let a = poly[0];
+  let b = poly[1 % poly.length];
+  let seg = Math.hypot(b.x - a.x, b.y - a.y);
+  let walked = 0;
+  for (let k = 0; k < n; k++) {
+    const target = k * step;
+    while (walked + seg < target && i < poly.length - 1) {
+      walked += seg;
+      i++;
+      a = poly[i];
+      b = poly[(i + 1) % poly.length];
+      seg = Math.hypot(b.x - a.x, b.y - a.y);
+    }
+    const t = seg > 0 ? Math.min(1, (target - walked) / seg) : 0;
+    out.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+  }
+  return out;
+}
+
+/** The part of a convex polygon where `n·p <= c` (Sutherland–Hodgman against one half-plane). */
+export function clipHalfPlane(poly: readonly Vec[], n: Vec, c: number): Polygon {
+  const out: Vec[] = [];
+  for (let i = 0; i < poly.length; i++) {
+    const p = poly[i];
+    const q = poly[(i + 1) % poly.length];
+    const dp = n.x * p.x + n.y * p.y - c;
+    const dq = n.x * q.x + n.y * q.y - c;
+    if (dp <= 0) out.push(p);
+    if (dp * dq < 0) {
+      const t = dp / (dp - dq);
+      out.push({ x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t });
+    }
+  }
+  return out;
 }

@@ -16,7 +16,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test:unit": "vitest run",
-    "test:e2e": "playwright test",
+    "test:e2e": "next build && playwright test",
     "test": "npm run test:unit && npm run test:e2e",
     "docs:lint": "node ../../COMPANY/scripts/docs-lint.mjs ."
   },

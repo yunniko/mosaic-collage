@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { area, centroid, isSimplePolygon, pointInPolygon, signedArea, simplifyPolygon, resamplePolygon } from "@/lib/geometry/polygon";
+import {
+  area,
+  centroid,
+  isSimplePolygon,
+  pointInPolygon,
+  segmentsIntersect,
+  signedArea,
+  simplifyPolygon,
+  resamplePolygon,
+} from "@/lib/geometry/polygon";
 import { localToWorld, poseWithLocalAt, rotatePoseAbout, worldToLocal } from "@/lib/geometry/pose";
 import { angleDelta } from "@/lib/geometry/vec";
+import { createRng } from "@/lib/random";
 import { fitBounds, screenToWorld, worldToScreen, zoomAt } from "@/lib/view/camera";
 
 const square = [
@@ -98,5 +108,38 @@ describe("camera", () => {
     const cam = fitBounds({ minX: 0, minY: 0, maxX: 100, maxY: 50 }, 540, 400, 20);
     expect(cam.zoom).toBeCloseTo(5);
     expect(cam.x).toBe(50);
+  });
+});
+
+describe("isSimplePolygon on large outlines", () => {
+  // Brute-force reference: every pair of non-adjacent edges.
+  const reference = (poly: { x: number; y: number }[]) => {
+    const n = poly.length;
+    for (let i = 0; i < n; i++)
+      for (let j = i + 2; j < n; j++) {
+        if (i === 0 && j === n - 1) continue;
+        if (segmentsIntersect(poly[i], poly[(i + 1) % n], poly[j], poly[(j + 1) % n])) return false;
+      }
+    return true;
+  };
+  const star = (n: number, seed: number) => {
+    const rng = createRng(seed);
+    return Array.from({ length: n }, (_, i) => {
+      const t = (i / n) * Math.PI * 2;
+      const r = 10 + 8 * rng();
+      return { x: r * Math.cos(t), y: r * Math.sin(t) };
+    });
+  };
+
+  it("agrees with the pairwise check, simple or crossed", () => {
+    for (let seed = 1; seed <= 30; seed++) {
+      const poly = star(300, seed);
+      expect(isSimplePolygon(poly)).toBe(true);
+      // Swapping two far-apart vertices makes the outline cross itself.
+      const crossed = poly.slice();
+      [crossed[10], crossed[160]] = [crossed[160], crossed[10]];
+      expect(isSimplePolygon(crossed)).toBe(reference(crossed));
+      expect(isSimplePolygon(crossed)).toBe(false);
+    }
   });
 });

@@ -46,7 +46,9 @@
     "textureKind": "Texture",
     "texturePlain": "Plain colour",
     "color": "Colour",
-    "toWorkboard": "Go to workboard"
+    "toWorkboard": "Go to workboard",
+    "generator": "Generator",
+    "reroll": "New variation"
   },
   "shapes": {
     "rectangle": "Rectangle",
@@ -59,6 +61,12 @@
     "diamond": "Diamond",
     "arcSegment": "Arc segment"
   },
+  "generators": {
+    "irregularPolygon": "Irregular polygon",
+    "shard": "Shard",
+    "blob": "Blob",
+    "waveStrip": "Wavy strip"
+  },
   "params": {
     "width": "Width",
     "height": "Height",
@@ -70,7 +78,16 @@
     "innerRatio": "Inner size",
     "outerRadius": "Outer radius",
     "thickness": "Thickness",
-    "angle": "Angle"
+    "angle": "Angle",
+    "irregularity": "Irregularity",
+    "spikiness": "Spikiness",
+    "neighbours": "Neighbours",
+    "lobes": "Lobes",
+    "wobble": "Wobble",
+    "length": "Length",
+    "amplitude": "Wave height",
+    "wavelength": "Wavelength",
+    "stabilization": "Stabilisation"
   },
   "units": {
     "mm": "mm",
@@ -107,6 +124,16 @@
     "piece-missing": "That piece no longer exists.",
     "placement-missing": "That placed piece no longer exists.",
     "placement-locked": "That piece is locked. Unlock it first.",
-    "unknown": "Something went wrong: {message}"
+    "unknown": "Something went wrong: {message}",
+    "outline-too-few-points": "That cut is too short to make a piece. Draw a closed outline.",
+    "outline-too-small": "That piece would be too small. Draw a larger outline.",
+    "outline-splits": "That outline crosses itself into separate pieces. Draw it as one loop.",
+    "outline-not-simple": "That outline crosses itself. Draw it as one loop."
+  },
+  "cut": {
+    "start": "Draw a cut",
+    "again": "Cut again",
+    "hint": "Draw the outline in one stroke. Wheel or two fingers move the view; Esc cancels.",
+    "cancel": "Cancel"
   }
 }

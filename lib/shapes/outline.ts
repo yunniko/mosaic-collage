@@ -2,8 +2,10 @@ import type { Piece, ShapeSource } from "../document/types";
 import type { Polygon } from "../geometry/polygon";
 import { createRng } from "../random";
 import { findShapeGenerator } from "./generators";
+import { cutOutline } from "./hand";
 import { sanitizeParams } from "./params";
 import { findPredefinedShape, normalizeOutline } from "./predefined";
+import { checkOutline } from "./repair";
 
 export class UnknownShapeError extends Error {
   constructor(kind: string, id: string) {
@@ -12,21 +14,30 @@ export class UnknownShapeError extends Error {
   }
 }
 
-/** The cut outline of a shape source, centred on its centroid, in mm. */
+/**
+ * The cut outline of a shape source, centred on its centroid, in mm. Throws an `OutlineError` if the source can't make
+ * a valid piece (a hand cut that splits, an outline that crosses itself or is too small).
+ */
 export function shapeOutline(shape: ShapeSource): Polygon {
+  const outline = normalizeOutline(rawOutline(shape));
+  checkOutline(outline);
+  return outline;
+}
+
+function rawOutline(shape: ShapeSource): Polygon {
   switch (shape.kind) {
     case "predefined": {
       const def = findPredefinedShape(shape.shapeId);
       if (!def) throw new UnknownShapeError("shape", shape.shapeId);
-      return normalizeOutline(def.build(sanitizeParams(def.params, shape.params)));
+      return def.build(sanitizeParams(def.params, shape.params));
     }
     case "generated": {
       const gen = findShapeGenerator(shape.generatorId);
       if (!gen) throw new UnknownShapeError("generator", shape.generatorId);
-      return normalizeOutline(gen.generate(sanitizeParams(gen.params, shape.params), createRng(shape.seed)));
+      return gen.generate(sanitizeParams(gen.params, shape.params), createRng(shape.seed));
     }
     case "hand":
-      return normalizeOutline(shape.points.map((p) => ({ ...p })));
+      return cutOutline(shape.points, shape.stabilization);
   }
 }
 
