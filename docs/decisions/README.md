@@ -10,3 +10,5 @@
 - D008 — A self-crossing cut keeps its largest part, or is refused — active
 - D009 — With overlap off, a dragged piece stops at contact, swings, or jumps to free space — active
 - D010 — Textures are sampled per pixel in lib/; images and PDF pages are decoded once in the app — active
+- D011 — Torn edges are a fractal offset of the cut line; relief is a lit height field from the edge distance — active
+- D012 — Large sprites show a coarser step at once and are refined in a Web Worker — active

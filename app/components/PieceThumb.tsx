@@ -4,13 +4,13 @@ import { useEffect, useRef } from "react";
 import type { Piece } from "@/lib/document/types";
 import { polygonBounds } from "@/lib/geometry/polygon";
 import { pieceOutline } from "@/lib/shapes/outline";
-import { drawSpriteAtOrigin, getSprite, useTextureVersion } from "../render/sprites";
+import { drawSpriteAtOrigin, getSprite, useRenderVersion } from "../render/sprites";
 import { dpr, prepareCanvas } from "./canvas-hooks";
 
 /** A small picture of a piece, fitted into a square. */
 export function PieceThumb({ piece, size = 56 }: { piece: Piece; size?: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
-  const textureVersion = useTextureVersion();
+  const textureVersion = useRenderVersion();
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;

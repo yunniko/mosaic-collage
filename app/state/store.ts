@@ -34,6 +34,8 @@ export interface AppState {
   fitRequest: number;
   /** Bumped whenever an image or PDF texture finishes decoding, so everything drawn with a stand-in redraws. */
   textureVersion: number;
+  /** Bumped whenever a sprite rendered in the background arrives, so the boards redraw with it (D012). */
+  spriteVersion: number;
 }
 
 type Listener = () => void;
@@ -50,6 +52,7 @@ class Store {
     notices: [],
     fitRequest: 0,
     textureVersion: 0,
+    spriteVersion: 0,
   };
   private listeners = new Set<Listener>();
   private noticeId = 0;

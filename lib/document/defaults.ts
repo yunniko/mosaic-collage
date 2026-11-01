@@ -18,11 +18,13 @@ export const DEFAULT_RELIEF: Relief = {
 
 export const defaultTornEdge = (seed = randomSeed()): TornEdge => ({
   enabled: false,
-  roughness: 1.2,
+  paper: "copy",
+  roughness: 0.8,
   scale: 6,
-  rimWidth: 1.2,
-  rimColor: "#f7f3ea",
-  fibres: 6,
+  grain: 0,
+  rimWidth: 0.8,
+  rimColor: null,
+  fibres: 12,
   coverage: 1,
   seed,
 });

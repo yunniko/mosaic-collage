@@ -4,7 +4,6 @@ import { BLEND_MODES, type Piece } from "@/lib/document/types";
 import { type Rgb, adjustHsl, applyLayers, blend, hslToRgb, prepareLayers, rgbToHsl } from "@/lib/raster/blend";
 import { type RgbaImage, createImage } from "@/lib/raster/image";
 import { renderPiece } from "@/lib/render/piece";
-import { pieceOutline } from "@/lib/shapes/outline";
 import { defaultParams } from "@/lib/shapes/params";
 import { TEXTURE_GENERATORS } from "@/lib/textures/generators";
 import { ramp, textureImageKey, textureSampling } from "@/lib/textures/sample";
@@ -200,27 +199,22 @@ describe("renderPiece with textures", () => {
         seed: 1,
       },
     });
-    const s = renderPiece(piece, pieceOutline(piece), 2, NO_IMAGES);
+    const s = renderPiece(piece, 2, NO_IMAGES);
     const shades = new Set<number>();
     for (let i = 0; i < s.image.data.length; i += 4) if (s.image.data[i + 3] === 255) shades.add(s.image.data[i]);
     expect(shades.has(0) && shades.has(255)).toBe(true);
     expect(s.image.data[3]).toBe(0);
     expect(s.pending).toBe(false);
 
-    const inverted = renderPiece(
-      { ...piece, colors: [{ kind: "tint", color: "#ffffff", mode: "difference", opacity: 1 }] },
-      pieceOutline(piece),
-      2,
-      NO_IMAGES
-    );
+    const inverted = renderPiece({ ...piece, colors: [{ kind: "tint", color: "#ffffff", mode: "difference", opacity: 1 }] }, 2, NO_IMAGES);
     for (let i = 0; i < s.image.data.length; i += 4)
       if (s.image.data[i + 3] === 255) expect(inverted.image.data[i]).toBe(255 - s.image.data[i]);
   });
 
   it("marks a sprite pending while its image is not decoded", () => {
     const piece = square({ texture: { kind: "image", assetId: "x" } });
-    expect(renderPiece(piece, pieceOutline(piece), 1, NO_IMAGES).pending).toBe(true);
-    expect(renderPiece(piece, pieceOutline(piece), 1, () => createImage(2, 2)).pending).toBe(false);
+    expect(renderPiece(piece, 1, NO_IMAGES).pending).toBe(true);
+    expect(renderPiece(piece, 1, () => createImage(2, 2)).pending).toBe(false);
   });
 
   it("renders a 60 mm image piece with a tint and a hue shift at 8 px/mm quickly enough to drag sliders", () => {
@@ -235,7 +229,7 @@ describe("renderPiece with textures", () => {
       ],
     });
     const t0 = performance.now();
-    renderPiece(piece, pieceOutline(piece), 8, () => img);
+    renderPiece(piece, 8, () => img);
     const ms = performance.now() - t0;
     console.log(`image + 2 layers 480x480 px render: ${ms.toFixed(0)} ms`);
     expect(ms).toBeLessThan(2000);
@@ -249,7 +243,7 @@ describe("renderPiece with textures", () => {
       colors: [{ kind: "hsl", hue: 20, saturation: 0.2, lightness: 0 }],
     });
     const t0 = performance.now();
-    renderPiece(piece, pieceOutline(piece), 8, NO_IMAGES);
+    renderPiece(piece, 8, NO_IMAGES);
     const ms = performance.now() - t0;
     console.log(`paper 480x480 px render: ${ms.toFixed(0)} ms`);
     expect(ms).toBeLessThan(2000);

@@ -70,7 +70,38 @@
     "saturation": "Saturation",
     "lightness": "Lightness",
     "addTint": "Add tint",
-    "addHsl": "Add hue/saturation"
+    "addHsl": "Add hue/saturation",
+    "relief": "Relief",
+    "reliefStyle": "Style",
+    "reliefSize": "Slope width",
+    "reliefDepth": "Depth",
+    "reliefSoftness": "Rounding",
+    "lightAngle": "Light direction",
+    "lightAltitude": "Light height",
+    "textureBump": "Texture bump",
+    "edge": "Edge",
+    "tornEdge": "Torn edge",
+    "paper": "Paper",
+    "roughness": "Roughness",
+    "tearScale": "Tear scale",
+    "grain": "Grain direction",
+    "rimWidth": "Core band width",
+    "fibres": "Loose fibres",
+    "coverage": "Torn share of the edge",
+    "coreFromPaper": "Core colour from the paper",
+    "coreColor": "Core colour"
+  },
+  "relief": {
+    "none": "None",
+    "bevel": "Bevel",
+    "emboss": "Emboss",
+    "pillow": "Pillow"
+  },
+  "papers": {
+    "copy": "Copy paper",
+    "newsprint": "Newsprint",
+    "cotton": "Cotton / watercolour",
+    "tissue": "Tissue (kozo)"
   },
   "shapes": {
     "rectangle": "Rectangle",
@@ -131,7 +162,8 @@
     "deg": "°",
     "percent": "%",
     "count": "",
-    "times": "×"
+    "times": "×",
+    "perCm": "/cm"
   },
   "workboard": {
     "tray": "Tray",

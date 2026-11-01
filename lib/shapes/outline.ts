@@ -1,4 +1,5 @@
-import type { Piece, ShapeSource } from "../document/types";
+import type { Piece, ShapeSource, TornEdge } from "../document/types";
+import { type TornOutline, tearOutline } from "../edges/tear";
 import type { Polygon } from "../geometry/polygon";
 import { createRng } from "../random";
 import { findShapeGenerator } from "./generators";
@@ -48,23 +49,30 @@ function rawOutline(shape: ShapeSource): Polygon {
   }
 }
 
-const outlineCache = new WeakMap<Piece, Polygon>();
+/** Torn outlines, per shape and then per edge object: a piece edited elsewhere (texture, name) keeps both. */
+const tearCache = new WeakMap<ShapeSource, WeakMap<TornEdge, TornOutline | null>>();
 
 /** Throws an `OutlineError` (or `UnknownShapeError`) unless the piece's shape can be cut. Primes the cache. */
 export function assertPieceCuts(piece: Piece): void {
   pieceOutline(piece);
 }
 
-/**
- * The piece's final outline: the cut shape with its torn edge applied. This one outline is what is drawn and what
- * collides. Cached per piece object; pieces are replaced, never mutated, so the cache cannot go stale.
- */
-export function pieceOutline(piece: Piece): Polygon {
-  // Kept separate from the shape cache: M5's torn edge depends on the piece, not just its shape.
-  let o = outlineCache.get(piece);
-  if (!o) {
-    o = shapeOutline(piece.shape);
-    outlineCache.set(piece, o);
+/** The piece's torn edge (D011), or null when its edge is cut. Throws like `shapeOutline`. */
+export function pieceTear(piece: Piece): TornOutline | null {
+  let byEdge = tearCache.get(piece.shape);
+  if (!byEdge) {
+    byEdge = new WeakMap();
+    tearCache.set(piece.shape, byEdge);
   }
-  return o;
+  let t = byEdge.get(piece.edge);
+  if (t === undefined) {
+    t = tearOutline(shapeOutline(piece.shape), piece.edge);
+    byEdge.set(piece.edge, t);
+  }
+  return t;
+}
+
+/** The piece's final outline: the cut shape with its torn edge applied. This one outline is what is drawn and what collides. */
+export function pieceOutline(piece: Piece): Polygon {
+  return pieceTear(piece)?.outline ?? shapeOutline(piece.shape);
 }

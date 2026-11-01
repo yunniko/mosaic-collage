@@ -83,7 +83,7 @@ export interface Relief {
   style: ReliefStyle;
   /** Width of the sloped band, mm. */
   size: number;
-  /** Strength of the shading, 0..1. */
+  /** Height of the slope as a share of the steepest paper takes without tearing (rise/run 0.3), 0..1. See D011. */
   depth: number;
   /** Rounding of the slope, 0 (hard) .. 1 (soft). */
   softness: number;
@@ -95,15 +95,26 @@ export interface Relief {
   textureBump: number;
 }
 
+/** The most a tear may wander, mm. */
+export const MAX_ROUGHNESS = 10;
+
+/** Kinds of paper a torn edge can be: they differ in fibre length and so in how fuzzy a tear is (D011). */
+export const PAPER_KINDS = ["copy", "newsprint", "cotton", "tissue"] as const;
+export type PaperKind = (typeof PAPER_KINDS)[number];
+
 export interface TornEdge {
   enabled: boolean;
-  /** How far the torn line wanders from the cut line, mm. */
+  paper: PaperKind;
+  /** How far the torn line wanders from the cut line, mm (across the grain; along it, half as far). */
   roughness: number;
   /** Scale of the largest wiggle, mm. */
   scale: number;
-  /** Width of the exposed paper core along the tear, mm. */
+  /** Direction of the paper's grain in the piece, degrees. */
+  grain: number;
+  /** Average width of the exposed paper core along the tear, mm; it varies along the edge. */
   rimWidth: number;
-  rimColor: string;
+  /** Colour of the exposed core, or null for the texture's own colour, paler and greyer. */
+  rimColor: string | null;
   /** Loose fibres per centimetre of tear. */
   fibres: number;
   /** Share of the outline that is torn rather than cut, 0..1. */

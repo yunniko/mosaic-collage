@@ -10,7 +10,7 @@ import { STABILIZATION, STROKE_MIN_STEP_MM } from "@/lib/shapes/hand";
 import { pieceOutline } from "@/lib/shapes/outline";
 import { type Camera, fitBounds, panBy, pinch, screenToWorld, wheelZoom } from "@/lib/view/camera";
 import { applyCamera, canvasPoint, dpr, prepareCanvas, useElementSize } from "../components/canvas-hooks";
-import { drawSpriteAtOrigin, getSprite, useTextureVersion } from "../render/sprites";
+import { drawSpriteAtOrigin, getSprite, useRenderVersion } from "../render/sprites";
 import { drawCuttingMat } from "../render/surfaces";
 import { errorText } from "../state/errors";
 import { store, useAppState, useCutting, useDoc } from "../state/store";
@@ -28,7 +28,7 @@ export function CutboardCanvas() {
   const selected = useAppState((s) => s.selectedPieceId);
   const piece = doc.pieces.find((p) => p.id === selected) ?? null;
   const cutting = useCutting();
-  const textureVersion = useTextureVersion();
+  const textureVersion = useRenderVersion();
   // The stroke being drawn lives in a ref and is repainted at most once a frame, not copied into state per move.
   const strokeRef = useRef<Vec[] | null>(null);
   const [strokeFrame, setStrokeFrame] = useState(0);

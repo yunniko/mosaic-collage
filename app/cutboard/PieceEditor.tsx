@@ -6,6 +6,8 @@ import type { Piece } from "@/lib/document/types";
 import { errorText } from "../state/errors";
 import { store, useAppState, useDoc } from "../state/store";
 import { ColorSection } from "./sections/ColorSection";
+import { EdgeSection } from "./sections/EdgeSection";
+import { ReliefSection } from "./sections/ReliefSection";
 import { ShapeSection } from "./sections/ShapeSection";
 import { TextureSection } from "./sections/TextureSection";
 
@@ -58,6 +60,8 @@ export function PieceEditor() {
       <ShapeSection piece={piece} disabled={placed} onChange={onChange} />
       <TextureSection piece={piece} disabled={placed} onChange={onChange} />
       <ColorSection piece={piece} disabled={placed} onChange={onChange} />
+      <ReliefSection piece={piece} disabled={placed} onChange={onChange} />
+      <EdgeSection piece={piece} disabled={placed} onChange={onChange} />
       <button type="button" className="btn mt-auto self-start" onClick={() => store.set({ view: "workboard" })}>
         {t("editor.toWorkboard")}
       </button>

@@ -14,6 +14,7 @@ import { type DragState, dragTo, rotateDrag, startDrag } from "@/lib/workboard/d
 import { type DragRules, moveFree, obstaclesFor, placeFree } from "@/lib/workboard/placement";
 import { artworkBounds, hitTest, placedShape } from "@/lib/workboard/scene";
 import { CLICK_SLOP, applyCamera, canvasPoint, prepareCanvas, useElementSize } from "../components/canvas-hooks";
+import { renderVersion } from "../render/sprites";
 import { drawTable } from "../render/surfaces";
 import { errorText } from "../state/errors";
 import { store, useAppState } from "../state/store";
@@ -94,7 +95,7 @@ export function WorkboardCanvas() {
     drawArtworkBackground(ctx, doc, artworkBounds(doc, moving));
     ctx.restore();
 
-    const layer = staticLayer(layerRef, doc, cam, w, h, activeId, store.getState().textureVersion);
+    const layer = staticLayer(layerRef, doc, cam, w, h, activeId, renderVersion(store.getState()));
     ctx.drawImage(layer, 0, 0, w, h);
 
     ctx.save();

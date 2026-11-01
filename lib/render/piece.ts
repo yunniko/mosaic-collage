@@ -1,9 +1,13 @@
 import type { Piece } from "../document/types";
-import { type Polygon, polygonBounds } from "../geometry/polygon";
-import { type PreparedLayer, type Rgb, applyLayers, prepareLayers } from "../raster/blend";
+import { polygonBounds } from "../geometry/polygon";
+import { type PreparedLayer, type Rgb, applyLayers, hexToRgb, prepareLayers } from "../raster/blend";
+import { edgeDistance } from "../raster/distance";
 import { type RgbaImage, createImage } from "../raster/image";
 import { rasterizePolygon } from "../raster/rasterize";
+import { pieceOutline, pieceTear, shapeOutline } from "../shapes/outline";
 import { type ImageLookup, type TextureSampling, textureSampling } from "../textures/sample";
+import { TornEdgePainter } from "./edge";
+import { shadeRelief } from "./relief";
 
 /** A rendered piece: its pixels, and where the piece's local origin (its centroid) falls in them. */
 export interface PieceSprite {
@@ -51,21 +55,28 @@ function pixelColor(tex: TextureSampling, layers: readonly PreparedLayer[]): (x:
 }
 
 /**
- * Renders a piece at `scale` px/mm: texture, then its colour layers in order, cut by the outline's coverage mask.
- * Each step is a pure function of the piece (and the decoded images it names), so the same pixels come out in a unit
- * test, on the boards and in an export.
+ * Renders a piece at `scale` px/mm: texture, then its colour layers in order, cut by the (torn) outline's coverage
+ * mask; then the torn edge's band, the relief's lighting, and the fuzz and fibres outside the line (D011). Each step is
+ * a pure function of the piece (and the decoded images it names), so the same pixels come out in a unit test, on the
+ * boards and in an export.
  */
-export function renderPiece(piece: Piece, outline: Polygon, requestedScale: number, images: ImageLookup): PieceSprite {
+export function renderPiece(piece: Piece, requestedScale: number, images: ImageLookup): PieceSprite {
+  const tear = pieceTear(piece);
+  const outline = pieceOutline(piece);
   const b = polygonBounds(outline);
-  const scale = Math.min(requestedScale, (MAX_SPRITE_PX - 2 * PAD_PX) / Math.max(b.maxX - b.minX, b.maxY - b.minY, 1));
-  const width = Math.ceil((b.maxX - b.minX) * scale) + 2 * PAD_PX;
-  const height = Math.ceil((b.maxY - b.minY) * scale) + 2 * PAD_PX;
-  const originX = PAD_PX - b.minX * scale;
-  const originY = PAD_PX - b.minY * scale;
+  const reach = tear?.reach ?? 0;
+  const side = Math.max(b.maxX - b.minX, b.maxY - b.minY, 1) + 2 * reach;
+  const scale = Math.min(requestedScale, (MAX_SPRITE_PX - 2 * PAD_PX) / side);
+  const pad = PAD_PX + Math.ceil(reach * scale);
+  const width = Math.ceil((b.maxX - b.minX) * scale) + 2 * pad;
+  const height = Math.ceil((b.maxY - b.minY) * scale) + 2 * pad;
+  const originX = pad - b.minX * scale;
+  const originY = pad - b.minY * scale;
   const px = outline.map((p) => ({ x: p.x * scale + originX, y: p.y * scale + originY }));
   const mask = rasterizePolygon(px, width, height);
 
-  const tex = textureSampling(piece.texture, piece.textureTransform, b, images);
+  // The texture is placed on the cut shape's bounds, so tearing or re-seeding the edge never shifts it.
+  const tex = textureSampling(piece.texture, piece.textureTransform, polygonBounds(shapeOutline(piece.shape)), images);
   const colorAt = pixelColor(tex, prepareLayers(piece.colors));
 
   const image = createImage(width, height);
@@ -82,6 +93,18 @@ export function renderPiece(piece: Piece, outline: Polygon, requestedScale: numb
       d[k + 2] = c[2] * 255;
       d[k + 3] = m * 255;
     }
+  }
+
+  const lit = piece.relief.style !== "none" || piece.relief.textureBump > 0;
+  if (tear || lit) {
+    const inside = edgeDistance(mask, true);
+    const frame = { scale, originX, originY };
+    const painter = tear
+      ? new TornEdgePainter(tear, frame, width, height, piece.edge.rimColor ? hexToRgb(piece.edge.rimColor) : null)
+      : null;
+    painter?.paintBand(image, mask, inside);
+    if (lit) shadeRelief(image, mask, inside, scale, piece.relief);
+    painter?.paintFibres(image, edgeDistance(mask, false), colorAt);
   }
   return { image, originX, originY, scale, pending: tex.kind === "flat" && tex.pending };
 }
