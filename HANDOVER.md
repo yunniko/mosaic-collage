@@ -1,15 +1,17 @@
 # mosaic-collage — Handover
-Last verified: 2026-11-01 at 3e14b06
+Last verified: 2026-11-01 at cee8523
 
 A browser app for mosaics and paper collages. Pieces are made on a cutboard and placed on a
 workboard. Goal G-001 is in `GOALS.md`. Charter: `E:\CLAUDE\COMPANY\`.
 
 ## Current state
 
-G-001 milestones M1 (foundation), M2 (shapes), M3 (no-overlap placement), M4 (textures and colour) and M5
-(relief and torn edges) are done; M4's bundled image textures wait on the Owner (see Next steps). Code is public at `https://github.com/yunniko/mosaic-collage`.
-CI on GitHub runs format, lint, typecheck, unit, then build and e2e (`npm run test:e2e` builds first, so it
-never tests a stale `out/`).
+G-001's six milestones are built; the goal waits on the Owner's sign-off. M4's bundled image textures still
+wait on the Owner (see Next steps).
+- Code is public at `https://github.com/yunniko/mosaic-collage`.
+- The app is live at `https://mosaic.app.julienika.cz` (see Deploy log).
+- CI on GitHub runs format, lint, typecheck and unit, then builds the production nginx image and runs the e2e
+  suite against it.
 
 Works, verified in this session:
 - **Cutboard.**
@@ -55,17 +57,27 @@ Works, verified in this session:
   - Undo and redo. A slider drag counts as one step.
   - Save and open the `.mosaic` file (a zip of `mosaic.json` and `assets/`). Loading validates the file
     and repairs what it can.
-  - The artwork background follows the placed pieces.
+- **Background and export** (workboard panel; D014, D015):
+  - The background is any texture (plain, generated, image or PDF page) laid over the placed pieces' bounds
+    plus a padding in mm.
+  - Export: PNG with or without the background, or JPG, at 72–600 dpi. The size is announced before export.
+    Exports over 64 MP are refused with the reason. Composition runs in a worker and reports progress.
+  - The board's drop shadow is exported at the same look.
+- **Layout.** Below 768 px wide the board comes first at full width and the panels stack under it.
 
-Not built yet, as planned in later milestones:
-- bundled image textures (waiting on the Owner);
-- background choice and export.
+Not built: the bundled image textures (waiting on the Owner).
 
 Rendering a large sprite no longer stalls a zoom: it is shown coarser at once and refined in a Web Worker
 (D012); checked in the browser at maximum zoom with no console errors.
 
-Tests: unit 106/106 (Vitest); e2e 42/42 (Playwright: chromium 20, firefox 20, tablet touch 2). Known: the full parallel e2e run occasionally hits a load timeout (a click or a download in
-firefox or chromium) that passes on a rerun; not yet traced.
+Tests: unit 115/115 (Vitest); e2e 54/54 (Playwright: chromium 26, firefox 26, tablet touch 2), locally and in
+CI against the nginx image.
+- An export toast could vanish before Firefox's driver looked for it, so the export specs record notices in
+  the page.
+- Known, untraced: a rare e2e load timeout that passes on a rerun (none in the 2026-11-01 runs).
+
+QA: the full pass of 2026-11-01 is `docs/qa-review/qa-review-2026-11-01-full.md`. Its two real findings are
+fixed; one minor finding is open (see Next steps).
 
 ## How things fit together
 
@@ -104,6 +116,13 @@ firefox or chromium) that passes on a rerun; not yet traced.
 - **Cut mode.** `cuttingPieceId` in the store, read through `useCutting()`; it ends when the selection
   changes. `app/cutboard/CutboardCanvas.tsx` draws the stroke and applies it on release.
 - **Camera.** Camera maths (pan, zoom, pinch, fit) is in `lib/view/camera.ts`, shared by both boards.
+- **Background and export.**
+  - `lib/export/plan.ts` sizes the export from the artwork bounds, including the torn edges' reach.
+  - `app/export/compose.ts` draws it in `app/export/export.worker.ts`, started by `app/export/run-export.ts`.
+  - The drop shadow is `lib/render/shadow.ts`, shared with the board.
+  - `app/render/background.ts` renders the board's background, deferring only parameter tweaks.
+- **Serving.** `Dockerfile` builds the static export into an nginx image configured by `deploy/nginx.conf`.
+  `docker-compose.yml` binds it to `127.0.0.1:30300` (D016). The host's vhost proxies to it.
 
 ## Rules in force
 
@@ -111,15 +130,21 @@ firefox or chromium) that passes on a rerun; not yet traced.
 - Served as a static site at `mosaic.app.julienika.cz`, source in the public repo `yunniko/mosaic-collage` (Owner, D005).
 - A placed piece is never edited; "duplicate as new" makes an editable copy (Owner, D002). The sprite cache
   relies on it.
+- The container binds to `127.0.0.1:30300` only, behind the host's TLS vhost (`INFRASTRUCTURE.md`: never
+  0.0.0.0; 30230 is taken by another site's container).
+- `deploy/nginx.conf` must serve `.mjs` as JavaScript: browsers refuse a module worker of any other type,
+  and pdf.js's worker is `.mjs`.
 - Interface text goes through next-intl messages, English first (Owner, D004).
 - Bundled textures and fonts need a licence allowing redistribution, recorded in assets/ATTRIBUTION.md
   (VALUES.md → Integrity of work). There are no bundled assets yet; the file comes with the first one.
 
 ## Next steps and open questions
 
-- M6 — background (colour, texture, picture) and JPG/PNG export, then the deploy to `mosaic.app.julienika.cz`.
-  Export bounds must include the fibre reach and pass each piece's rotation to the renderer (D013).
-- Trace the occasional e2e load timeouts noted above.
+- G-001 waits on the Owner's sign-off.
+- QA finding 3: a file colour not in `#rrggbb` form loads as `#888888` without a warning. Low priority.
+- Not yet checked: Edge, a real phone or tablet, and timing a 600 dpi export of a large board.
+- Redeploy: `cd /var/www/repositories/mosaic-collage && git pull && docker compose --profile app up -d --build`.
+  Then check the site in a browser and confirm the other containers were not recreated.
 - BLOCKED: may four CC0 texture zips be downloaded from ambientcg.com for the bundled set? Details in the
   `GOALS.md` progress log. Until then the predefined set is the generated textures.
 
@@ -127,6 +152,8 @@ firefox or chromium) that passes on a rerun; not yet traced.
 
 | Date | Commit | What changed | How verified |
 | ---- | ------ | ------------ | ------------ |
+| 2026-11-01 | 56af31a | First deploy: container, vhost and TLS via `julai-new-vhost` | HTTPS 200, headers, `.mjs` type, real PNG export in Chrome, other sites 200 |
+| 2026-11-01 | cee8523 | Number-box and phone-layout fixes from QA | 3 e2e specs × 2 browsers against the live URL, 6/6; other sites 200; only this container recreated |
 
 ## Decisions
 

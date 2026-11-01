@@ -78,7 +78,7 @@
   - Torn-paper edge: displaced outline and exposed fibre band.
   - Rendered pieces are cached, since pieces never change once placed.
   - A `domain-expert` review of how real torn paper looks, saved in `docs/`.
-- [ ] M6 — **Background and export.**
+- [x] M6 — **Background and export.**
   - Background colour, texture or uploaded picture.
   - JPG export, and PNG export with or without the background, at a chosen resolution.
   - Full QA pass, README and handover final.
@@ -86,6 +86,27 @@
     an nginx vhost and a TLS certificate through `julai-new-vhost`), checked live.
 
 **Progress log** (newest first):
+- 2026-11-01 — **M6 done; all six milestones built. Waiting on the Owner's sign-off.** Live at
+  `https://mosaic.app.julienika.cz`, last deployed at cee8523. Built:
+  - a textured background over the artwork bounds with a padding (D014);
+  - PNG (with or without background) and JPG export at 72–600 dpi, composed in a worker, capped at 64 MP
+    (D015);
+  - the nginx production image, also used by CI's e2e run (D016);
+  - the deploy: container on `127.0.0.1:30300` (30230 was taken), with the vhost and TLS from
+    `julai-new-vhost`.
+
+  Check-in:
+  - /simplify: one export path and a cheaper background and export.
+  - /code-review: fixed legacy background files, a lost texture redraw, the shadow module's home, the
+    torn-edge reach of a piece in hand, and the CI wait.
+  - Full QA on the live site (`docs/qa-review/qa-review-2026-11-01-full.md`). Fixed and redeployed: number
+    boxes clamped on every keystroke ("12" became 42), and the phone-width layout hid the boards. Open,
+    minor: a malformed colour in a file loads as grey without a warning.
+  - Verified: unit 115/115; e2e 54/54 locally; CI green on cee8523. Against the live URL: the fixed specs
+    passed 6/6 and a real PNG export worked in Chrome. Other sites returned 200 and their containers were
+    not recreated.
+
+  Next: the Owner's sign-off. The ambientCG BLOCKED item below is still open.
 - 2026-11-01 — **M5 done** (3e14b06). Built:
   - bevel, emboss and pillow relief plus a texture bump, under one light fixed on the board (D011, D013);
   - torn edges in five paper kinds with a core band, fibres and fuzz; the domain-expert reference is
