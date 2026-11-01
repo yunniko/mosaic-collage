@@ -3,18 +3,18 @@
 import { useTranslations } from "next-intl";
 import { MAX_ROUGHNESS, PAPER_KINDS, type PaperKind, type TornEdge } from "@/lib/document/types";
 import { randomSeed } from "@/lib/random";
-import { ColorField, NumberField, Section, SelectField, Toggle } from "../../components/controls";
+import { ColorField, type ScaledFieldSpec, ScaledFields, Section, SelectField, Toggle } from "../../components/controls";
 import type { SectionProps } from "../PieceEditor";
 
 type NumericKey = "roughness" | "scale" | "grain" | "rimWidth" | "fibres" | "coverage";
 
-/** The tear's sliders: shown value = stored value × `factor`. */
-const FIELDS: { key: NumericKey; label: string; min: number; max: number; step: number; factor: number; unit: string }[] = [
-  { key: "roughness", label: "editor.roughness", min: 0, max: MAX_ROUGHNESS, step: 0.1, factor: 1, unit: "units.mm" },
-  { key: "scale", label: "editor.tearScale", min: 1, max: 40, step: 0.5, factor: 1, unit: "units.mm" },
-  { key: "grain", label: "editor.grain", min: 0, max: 180, step: 1, factor: 1, unit: "units.deg" },
-  { key: "rimWidth", label: "editor.rimWidth", min: 0, max: 3, step: 0.1, factor: 1, unit: "units.mm" },
-  { key: "fibres", label: "editor.fibres", min: 0, max: 40, step: 1, factor: 1, unit: "units.perCm" },
+/** The tear's sliders. */
+const FIELDS: ScaledFieldSpec<NumericKey>[] = [
+  { key: "roughness", label: "editor.roughness", min: 0, max: MAX_ROUGHNESS, step: 0.1, unit: "units.mm" },
+  { key: "scale", label: "editor.tearScale", min: 1, max: 40, step: 0.5, unit: "units.mm" },
+  { key: "grain", label: "editor.grain", min: 0, max: 180, step: 1, unit: "units.deg" },
+  { key: "rimWidth", label: "editor.rimWidth", min: 0, max: 3, step: 0.1, unit: "units.mm" },
+  { key: "fibres", label: "editor.fibres", min: 0, max: 40, step: 1, unit: "units.perCm" },
   { key: "coverage", label: "editor.coverage", min: 5, max: 100, step: 1, factor: 100, unit: "units.percent" },
 ];
 
@@ -46,20 +46,13 @@ export function EdgeSection({ piece, disabled, onChange }: SectionProps) {
             onChange={(paper) => set({ paper }, null)}
             testId="edge-paper"
           />
-          {FIELDS.map((f) => (
-            <NumberField
-              key={f.key}
-              label={t(f.label)}
-              value={Math.round(edge[f.key] * f.factor * 10) / 10}
-              min={f.min}
-              max={f.max}
-              step={f.step}
-              unit={t(f.unit)}
-              disabled={disabled}
-              onChange={(v) => set({ [f.key]: v / f.factor }, f.key)}
-              testId={`edge-${f.key}`}
-            />
-          ))}
+          <ScaledFields
+            fields={FIELDS}
+            values={edge}
+            disabled={disabled}
+            onChange={(key, v) => set({ [key]: v }, key)}
+            testIdPrefix="edge"
+          />
           <Toggle
             label={t("editor.coreFromPaper")}
             checked={edge.rimColor === null}

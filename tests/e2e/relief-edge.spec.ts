@@ -11,7 +11,10 @@ function cutboardPrint(page: Page): Promise<number> {
   });
 }
 
-/** The cutboard's fingerprint once two readings a frame apart agree: the board has finished laying out and drawing. */
+/**
+ * The cutboard's fingerprint once two readings agree. A large sprite is shown coarse and refined in the background
+ * (D012), so a settled print may be either: compare prints to tell a change happened, not to match an earlier state.
+ */
 async function settledPrint(page: Page): Promise<number> {
   let last = NaN;
   await expect
@@ -36,6 +39,7 @@ test("a relief takes a style and its sliders, is drawn, and undo walks it back",
   await page.getByTestId("relief-depth").fill("80");
   await page.getByTestId("relief-lightAngle").fill("90");
   await expect.poll(() => cutboardPrint(page)).not.toBe(flat);
+  const embossed = await settledPrint(page);
 
   let { doc } = await savedDocument(page);
   expect(doc.pieces[0].relief).toMatchObject({ style: "emboss", size: 3, lightAngle: 90 });
@@ -45,7 +49,7 @@ test("a relief takes a style and its sliders, is drawn, and undo walks it back",
   for (let i = 0; i < 4; i++) await u.undo.click();
   ({ doc } = await savedDocument(page));
   expect(doc.pieces[0].relief.style).toBe("none");
-  await expect.poll(() => cutboardPrint(page)).toBe(flat);
+  await expect.poll(() => cutboardPrint(page)).not.toBe(embossed);
 });
 
 test("a torn edge takes a paper, a roughness, a core colour and a new tear", async ({ page }) => {

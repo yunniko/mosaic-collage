@@ -213,6 +213,7 @@ export function tearOutline(base: readonly Vec[], edge: TornEdge): TornOutline |
   const finest = Math.max(MIN_WAVELENGTH, 2 * step);
   const offset = new Float32Array(n);
   for (let i = 0; i < n; i++) {
+    if (torn[i] * taper[i] === 0) continue;
     const a = line[mod(i - 1, n)];
     const b = line[(i + 1) % n];
     const along = Math.abs(Math.cos(Math.atan2(b.y - a.y, b.x - a.x) - grain));

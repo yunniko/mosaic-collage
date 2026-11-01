@@ -1,5 +1,5 @@
 import type { TornOutline } from "../edges/tear";
-import { type Rgb, lerpRgb } from "../raster/blend";
+import { type Rgb, lerpRgb, luma } from "../raster/blend";
 import { blurInside } from "../raster/blur";
 import type { Mask, RgbaImage } from "../raster/image";
 
@@ -21,7 +21,7 @@ const WHITE: Rgb = [1, 1, 1];
 
 /** The colour of exposed paper core: the face colour, greyer and paler (D011). */
 export function coreColor(c: Rgb): Rgb {
-  const l = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  const l = luma(c[0], c[1], c[2]);
   return lerpRgb(lerpRgb(c, [l, l, l], 0.5), WHITE, 0.5);
 }
 
@@ -93,6 +93,8 @@ export interface SpriteFrame {
  */
 export class TornEdgePainter {
   private readonly grid: VertexGrid;
+  /** Deepest the band reaches inside the line, mm. */
+  private readonly bandReach: number;
 
   constructor(
     private readonly tear: TornOutline,
@@ -105,9 +107,11 @@ export class TornEdgePainter {
     const { scale, originX, originY } = frame;
     const xs = new Float32Array(tear.outline.map((p) => p.x * scale + originX));
     const ys = new Float32Array(tear.outline.map((p) => p.y * scale + originY));
-    let widest = tear.fuzzWidth;
+    let widest = 0;
     for (const b of tear.band) widest = Math.max(widest, b);
-    this.grid = new VertexGrid(xs, ys, width, height, Math.max(2, (widest + BAND_SOFTNESS) * scale + 1));
+    this.bandReach = widest + BAND_SOFTNESS;
+    const cell = Math.max(this.bandReach, tear.fuzzWidth) * scale + 1;
+    this.grid = new VertexGrid(xs, ys, width, height, Math.max(2, cell));
   }
 
   private core(c: Rgb): Rgb {
@@ -126,11 +130,12 @@ export class TornEdgePainter {
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const i = y * w + x;
-        if (m[i] <= 0) continue;
+        const d = inside[i] / scale;
+        // Most of a sprite lies deeper than any band: skip the vertex lookup there.
+        if (m[i] <= 0 || d >= this.bandReach) continue;
         const v = this.grid.nearest(x + 0.5, y + 0.5);
         if (v < 0) continue;
         const bw = band[v];
-        const d = inside[i] / scale;
         if (bw <= 0 || d >= bw + BAND_SOFTNESS) continue;
         cover[i] = Math.min(1, (bw + BAND_SOFTNESS - d) / BAND_SOFTNESS);
         thin[i] = cover[i] * (1 - Math.min(1, d / bw));

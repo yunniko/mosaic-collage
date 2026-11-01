@@ -7,7 +7,7 @@ import { pieceOutline, pieceTear } from "@/lib/shapes/outline";
 import { textureImageKey } from "@/lib/textures/sample";
 import { type AppState, store, useAppState } from "../state/store";
 import { createCanvas2d } from "./canvas";
-import type { SpriteJob } from "./sprite.worker";
+import type { SpriteJob, SpriteResult } from "./sprite.worker";
 import { lookupTextureImage } from "./texture-images";
 
 /** A rendered piece uploaded to a canvas; the RGBA buffer is not kept. Origin and scale as in `PieceSprite`. */
@@ -63,11 +63,19 @@ function remember(piece: Piece, step: number, sprite: PieceSprite, version: numb
   return s;
 }
 
-/** Pixels a sprite of the piece takes at `step`, from its bounds and how far its fibres reach. */
+/** A piece's sprite area per (px/mm)², mm²: its bounds grown by how far its fibres reach. */
+const areas = new WeakMap<Piece, number>();
+
+/** Pixels a sprite of the piece takes at `step`. */
 function pixelsAt(piece: Piece, step: number): number {
-  const b = polygonBounds(pieceOutline(piece));
-  const reach = 2 * (pieceTear(piece)?.reach ?? 0);
-  return (b.maxX - b.minX + reach) * (b.maxY - b.minY + reach) * step * step;
+  let area = areas.get(piece);
+  if (area === undefined) {
+    const b = polygonBounds(pieceOutline(piece));
+    const reach = 2 * (pieceTear(piece)?.reach ?? 0);
+    area = (b.maxX - b.minX + reach) * (b.maxY - b.minY + reach);
+    areas.set(piece, area);
+  }
+  return area * step * step;
 }
 
 // ---- Background renders -------------------------------------------------------------------------------------------
@@ -78,30 +86,25 @@ interface Job {
   wanted: number;
   version: number;
 }
-const jobs = new Map<string, Job>();
-const jobKeys = new WeakMap<Piece, number>();
-let nextPieceKey = 1;
-let busy: { id: number; key: string; job: Job } | null = null;
+/** Queued renders; few at a time, so a list searched by piece and step. */
+let jobs: Job[] = [];
+let busy: { id: number; job: Job } | null = null;
 let nextJobId = 1;
 let worker: Worker | null | undefined;
-
-function jobKey(piece: Piece, step: number): string {
-  let k = jobKeys.get(piece);
-  if (k === undefined) {
-    k = nextPieceKey++;
-    jobKeys.set(piece, k);
-  }
-  return `${k}@${step}`;
-}
+/** Image keys the worker already holds, so each decoded image is copied to it once. */
+const sentImages = new Set<string>();
+/** Steps whose render threw, per piece: not asked for again, the coarser sprite stays. */
+const failed = new WeakMap<Piece, Set<number>>();
 
 function getWorker(): Worker | null {
   if (worker !== undefined) return worker;
   try {
     worker = new Worker(new URL("./sprite.worker.ts", import.meta.url), { type: "module" });
-    worker.onmessage = (e: MessageEvent<{ id: number; sprite?: PieceSprite; error?: string }>) => finish(e.data.id, e.data.sprite);
+    worker.onmessage = (e: MessageEvent<SpriteResult>) => finish(e.data.id, e.data.sprite, e.data.error);
     worker.onerror = () => {
       // The worker could not load: render on the main thread from now on, one job per task.
       worker = null;
+      sentImages.clear();
       if (busy) runOnMainThread(busy);
     };
   } catch {
@@ -110,26 +113,29 @@ function getWorker(): Worker | null {
   return worker;
 }
 
-function finish(id: number, sprite: PieceSprite | undefined) {
+function finish(id: number, sprite: PieceSprite | undefined, error?: string) {
   if (!busy || busy.id !== id) return;
   const { job } = busy;
   busy = null;
   if (sprite) {
     remember(job.piece, job.step, sprite, job.version);
     store.set({ spriteVersion: store.getState().spriteVersion + 1 });
+  } else {
+    console.error(`Rendering a piece at ${job.step} px/mm failed`, error);
+    const steps = failed.get(job.piece) ?? new Set<number>();
+    steps.add(job.step);
+    failed.set(job.piece, steps);
   }
   pump();
 }
 
 function runOnMainThread(b: NonNullable<typeof busy>) {
   setTimeout(() => {
-    let sprite: PieceSprite | undefined;
     try {
-      sprite = renderPiece(b.job.piece, b.job.step, lookupTextureImage);
-    } catch {
-      sprite = undefined;
+      finish(b.id, renderPiece(b.job.piece, b.job.step, lookupTextureImage));
+    } catch (err) {
+      finish(b.id, undefined, String(err));
     }
-    finish(b.id, sprite);
   }, 0);
 }
 
@@ -137,43 +143,53 @@ function runOnMainThread(b: NonNullable<typeof busy>) {
 function pump() {
   if (busy) return;
   const now = performance.now();
-  let pick: [string, Job] | null = null;
-  for (const entry of jobs) {
-    if (now - entry[1].wanted > STALE_MS) jobs.delete(entry[0]);
-    else if (!pick || entry[1].wanted > pick[1].wanted) pick = entry;
-  }
-  if (!pick) return;
-  const [key, job] = pick;
-  jobs.delete(key);
-  busy = { id: nextJobId++, key, job };
+  jobs = jobs.filter((j) => now - j.wanted <= STALE_MS);
+  if (jobs.length === 0) return;
+  const job = jobs.reduce((a, b) => (b.wanted > a.wanted ? b : a));
+  jobs.splice(jobs.indexOf(job), 1);
+  busy = { id: nextJobId++, job };
   const w = getWorker();
   if (!w) {
     runOnMainThread(busy);
     return;
   }
   const imageKey = textureImageKey(job.piece.texture);
-  const msg: SpriteJob = {
-    id: busy.id,
-    piece: job.piece,
-    step: job.step,
-    imageKey,
-    image: imageKey ? lookupTextureImage(imageKey) : undefined,
-  };
+  let image: SpriteJob["image"];
+  if (imageKey && !sentImages.has(imageKey)) {
+    image = lookupTextureImage(imageKey);
+    // Still decoding: send nothing and let the worker draw the stand-in, as the page would.
+    if (image !== undefined) sentImages.add(imageKey);
+  }
+  const msg: SpriteJob = { id: busy.id, piece: job.piece, step: job.step, imageKey, image };
   w.postMessage(msg);
 }
 
 function request(piece: Piece, step: number, version: number) {
-  const key = jobKey(piece, step);
-  if (busy?.key === key) return;
-  const job = jobs.get(key);
+  if (failed.get(piece)?.has(step)) return;
+  const same = (j: Job) => j.piece === piece && j.step === step;
+  if (busy && same(busy.job)) return;
+  const job = jobs.find(same);
   if (job) job.wanted = performance.now();
-  else jobs.set(key, { piece, step, wanted: performance.now(), version });
+  else jobs.push({ piece, step, wanted: performance.now(), version });
   pump();
 }
 
 // ---- Lookup ------------------------------------------------------------------------------------------------------
 
 const valid = (s: Cached | undefined, version: number): s is Cached => !!s && (s.pendingAt === null || s.pendingAt === version);
+
+/** The cached step nearest `step`: the smallest finer one, else the largest coarser one. */
+function nearestCached(byStep: Map<number, Cached>, step: number, version: number): Cached | null {
+  let finer: [number, Cached] | null = null;
+  let coarser: [number, Cached] | null = null;
+  for (const [s, c] of byStep) {
+    if (!valid(c, version)) continue;
+    if (s >= step) {
+      if (!finer || s < finer[0]) finer = [s, c];
+    } else if (!coarser || s > coarser[0]) coarser = [s, c];
+  }
+  return (finer ?? coarser)?.[1] ?? null;
+}
 
 /**
  * The piece rendered for `pxPerMm`. Pieces are replaced rather than mutated, and placed pieces never change (D002),
@@ -190,17 +206,7 @@ export function getSprite(piece: Piece, pxPerMm: number): CanvasSprite {
 
   if (pixelsAt(piece, step) <= SYNC_PIXELS) return remember(piece, step, renderPiece(piece, step, lookupTextureImage), version);
 
-  // Meanwhile: the nearest step already rendered — the smallest finer one, else the largest coarser one.
-  let best: Cached | null = null;
-  let bestStep = 0;
-  for (const [s, c] of byStep ?? []) {
-    if (!valid(c, version)) continue;
-    const better = !best || (s >= step ? bestStep < step || s < bestStep : bestStep < step && s > bestStep);
-    if (better) {
-      best = c;
-      bestStep = s;
-    }
-  }
+  const best = byStep && nearestCached(byStep, step, version);
   let coarse = step;
   while (coarse > MIN_STEP && pixelsAt(piece, coarse) > SYNC_PIXELS) coarse /= 2;
   // Even the coarsest step is too big to render at once: there is nothing finer to wait for, so render it now.

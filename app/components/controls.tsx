@@ -75,6 +75,45 @@ export function ParamField(props: { spec: ParamSpec; value: number; disabled?: b
   );
 }
 
+/** A slider over a stored number shown × `factor` (100 shows a 0..1 share as a percentage); labels are message keys. */
+export interface ScaledFieldSpec<K extends string> {
+  key: K;
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  unit: string;
+  factor?: number;
+}
+
+/** One `NumberField` per spec, reading and writing `values[key]`, test ids `<prefix>-<key>`. */
+export function ScaledFields<K extends string>(props: {
+  fields: readonly ScaledFieldSpec<K>[];
+  values: Record<K, number>;
+  disabled?: boolean;
+  onChange: (key: K, v: number) => void;
+  testIdPrefix: string;
+}) {
+  const t = useTranslations();
+  return props.fields.map((f) => {
+    const factor = f.factor ?? 1;
+    return (
+      <NumberField
+        key={f.key}
+        label={t(f.label)}
+        value={Math.round(props.values[f.key] * factor * 10) / 10}
+        min={f.min}
+        max={f.max}
+        step={f.step}
+        unit={t(f.unit)}
+        disabled={props.disabled}
+        onChange={(v) => props.onChange(f.key, v / factor)}
+        testId={`${props.testIdPrefix}-${f.key}`}
+      />
+    );
+  });
+}
+
 export function ColorField(props: { label: string; value: string; disabled?: boolean; onChange: (v: string) => void; testId?: string }) {
   const id = useId();
   return (

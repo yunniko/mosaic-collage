@@ -1,4 +1,5 @@
 import type { Relief } from "../document/types";
+import { luma } from "../raster/blend";
 import { blurInside } from "../raster/blur";
 import type { Mask, RgbaImage } from "../raster/image";
 
@@ -55,7 +56,7 @@ export function shadeRelief(image: RgbaImage, mask: Mask, inside: Float32Array, 
     for (let i = 0; i < w * h; i++) {
       if (m[i] <= 0) continue;
       const k = i * 4;
-      height[i] += bump * (0.2126 * data[k] + 0.7152 * data[k + 1] + 0.0722 * data[k + 2] - 127.5);
+      height[i] += bump * (luma(data[k], data[k + 1], data[k + 2]) - 127.5);
     }
   }
 
@@ -72,11 +73,10 @@ export function shadeRelief(image: RgbaImage, mask: Mask, inside: Float32Array, 
       if (m[i] <= 0) continue;
       const hc = height[i];
       // A neighbour outside the piece takes this pixel's height, so the cut edge itself makes no false slope.
-      const at = (j: number) => (m[j] > 0 ? height[j] : hc);
-      const hl = x > 0 ? at(i - 1) : hc;
-      const hr = x < w - 1 ? at(i + 1) : hc;
-      const hu = y > 0 ? at(i - w) : hc;
-      const hd = y < h - 1 ? at(i + w) : hc;
+      const hl = x > 0 && m[i - 1] > 0 ? height[i - 1] : hc;
+      const hr = x < w - 1 && m[i + 1] > 0 ? height[i + 1] : hc;
+      const hu = y > 0 && m[i - w] > 0 ? height[i - w] : hc;
+      const hd = y < h - 1 && m[i + w] > 0 ? height[i + w] : hc;
       const gx = (hr - hl) * k2;
       const gy = (hd - hu) * k2;
       // The normal (-gx, -gy, 1) dotted with the direction to the light, relative to flat paper (n·L = sin alt).

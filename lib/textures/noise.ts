@@ -80,8 +80,3 @@ export class Noise2D {
 function wrap(v: number, per: number): number {
   return (per > 0 ? ((v % per) + per) % per : v) & 255;
 }
-
-/** One-dimensional noise along a line (for torn edges): `fbm` on a row of the 2D field. */
-export function noise1D(noise: Noise2D, t: number, octaves = 4, gain = 0.5): number {
-  return noise.fbm(t, 17.31, octaves, gain);
-}
