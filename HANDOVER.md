@@ -1,12 +1,13 @@
 # mosaic-collage — Handover
-Last verified: 2026-11-01 at d1ecf75
+Last verified: 2026-11-01 at 5b67718
 
 A browser app for mosaics and paper collages. Pieces are made on a cutboard and placed on a
 workboard. Goal G-001 is in `GOALS.md`. Charter: `E:\CLAUDE\COMPANY\`.
 
 ## Current state
 
-G-001 milestones M1 (foundation), M2 (shapes) and M3 (no-overlap placement) are done. Code is public at `https://github.com/yunniko/mosaic-collage`.
+G-001 milestones M1 (foundation), M2 (shapes), M3 (no-overlap placement) and M4 (textures and colour) are done;
+M4's bundled image textures wait on the Owner (see Next steps). Code is public at `https://github.com/yunniko/mosaic-collage`.
 CI on GitHub runs format, lint, typecheck, unit, then build and e2e (`npm run test:e2e` builds first, so it
 never tests a stale `out/`).
 
@@ -38,6 +39,13 @@ Works, verified in this session:
     - turns (wheel, second finger, R) stop at contact;
     - a drop or tray placement that would crowd a piece moves to the nearest free spot, at the margin;
     - a piece already overlapping when overlap is switched off is drawn red and moves freely until clear.
+- **Textures and colour** (cutboard, Texture and Colour layers sections):
+  - plain colour; seven generated textures (paper, clouds, marble, wood, granite, weave, stripes) with
+    parameters, editable colour stops and "New variation";
+  - an uploaded image (PNG, JPEG, WebP, GIF, AVIF, BMP; not SVG) or a PDF page with a page picker, saved
+    inside the `.mosaic` file; a file that can't be read gives a message and the fallback colour;
+  - texture shift, scale and angle, about the piece's centre;
+  - colour layers in order: tints in 16 W3C blend modes with opacity, and hue/saturation/lightness shifts.
 - **Shared.**
   - Undo and redo. A slider drag counts as one step.
   - Save and open the `.mosaic` file (a zip of `mosaic.json` and `assets/`). Loading validates the file
@@ -45,11 +53,14 @@ Works, verified in this session:
   - The artwork background follows the placed pieces.
 
 Not built yet, as planned in later milestones:
-- textures and colour;
+- bundled image textures (waiting on the Owner);
 - relief and torn edges;
 - background choice and export.
 
-Tests: unit 74/74 (Vitest); e2e 28/28 (Playwright: chromium 13, firefox 13, tablet touch 2).
+Known limit: a piece renders on the main thread at about 1 µs per pixel (`tests/unit/textures.spec.ts`
+timings), so zooming a large piece far in can stall for seconds. Carried into M5.
+
+Tests: unit 92/92 (Vitest); e2e 38/38 (Playwright: chromium 18, firefox 18, tablet touch 2).
 
 ## How things fit together
 
@@ -68,6 +79,11 @@ Tests: unit 74/74 (Vitest); e2e 28/28 (Playwright: chromium 13, firefox 13, tabl
   - Pieces render to RGBA through `lib/render/piece.ts` (D006).
   - `app/render/sprites.ts` caches each render per piece object and per power-of-two px/mm step.
   - The table and mat surfaces are generated in `app/render/surfaces.ts`.
+- **Textures** (D010). `lib/textures/sample.ts` turns a texture into a flat colour, a generated field through a
+  colour ramp, or decoded pixels; `lib/raster/blend.ts` holds the blend and HSL maths. Generators are a
+  registry in `lib/textures/generators/` like the shape generators. `app/render/texture-images.ts` decodes
+  images and PDF pages (pdf.js, loaded on demand) and bumps `textureVersion` in the store when one settles;
+  stand-in sprites drawn while decoding are replaced then.
 - **Workboard.**
   - `app/workboard/WorkboardCanvas.tsx` holds the gesture state machine.
   - Pieces other than the one in hand are drawn into a cached static layer.
@@ -89,14 +105,15 @@ Tests: unit 74/74 (Vitest); e2e 28/28 (Playwright: chromium 13, firefox 13, tabl
   relies on it.
 - Interface text goes through next-intl messages, English first (Owner, D004).
 - Bundled textures and fonts need a licence allowing redistribution, recorded in assets/ATTRIBUTION.md
-  (VALUES.md → Integrity of work). There are no bundled assets yet; the file is created with the first one, in M4.
+  (VALUES.md → Integrity of work). There are no bundled assets yet; the file comes with the first one.
 
 ## Next steps and open questions
 
-- M4 — Textures and colour: plain, generated (registry), image and PDF-page textures with offset, scale and
-  rotation; blend modes and HSL; the first bundled assets with assets/ATTRIBUTION.md (created in M4).
-- Then M5–M6 per `GOALS.md`. M6 includes the deploy to `mosaic.app.julienika.cz`.
-- No open questions for the Owner.
+- M5 — Relief and torn edges, per `GOALS.md`; also take sprite rendering off the main thread or cap its
+  resolution (the known limit above).
+- Then M6, which includes the deploy to `mosaic.app.julienika.cz`.
+- BLOCKED: may four CC0 texture zips be downloaded from ambientcg.com for the bundled set? Details in the
+  `GOALS.md` progress log. Until then the predefined set is the generated textures.
 
 ## Deploy log
 

@@ -68,7 +68,7 @@
   - Stopping at contact, auto-rotation about the contact point, jumping into free space.
   - Wheel and two-finger rotation about the grab point.
   - Unit tests on the geometry; e2e on the drag behaviour, mouse and touch.
-- [ ] M4 — **Textures and colour.**
+- [x] M4 — **Textures and colour.** (bundled image set still BLOCKED on the Owner)
   - Generated-texture registry (noise, paper fibre, marble, stripes and others).
   - Image and PDF-page textures, predefined and uploaded (pdf.js).
   - Texture offset, scale and rotation; blend modes; HSL adjustment.
@@ -86,6 +86,21 @@
     an nginx vhost and a TLS certificate through `julai-new-vhost`), checked live.
 
 **Progress log** (newest first):
+- 2026-11-01 — **M4 done** (5b67718), except the bundled image set (BLOCKED below, still open). Built:
+  - seven generated textures, image and PDF-page textures (pdf.js on demand), texture shift/scale/angle;
+  - colour layers: W3C blend-mode tints and HSL shifts (D010).
+
+  Check-in:
+  - /simplify: flat/field/image sampling with a colour table for generated textures, one open PDF per
+    file, explicit "failed" decode state, shared colour and canvas helpers, `mixSeed` streams.
+  - /code-review: 7 of 10 fixed (greys reddened by saturation, stale-piece upload, unbounded decoded
+    pages, sticky pdf.js load failure, MIME detection, leaked bytes, missing bytes waiting forever).
+    3 not taken, reasons in the milestone note.
+  - Verified: unit 92/92; e2e 38/38; tsc, eslint, prettier clean; Chrome check of PDF upload, page switch
+    and grey saturation, no console errors.
+  - Measured: 480×480 px render 223 ms (image + 2 layers), 257 ms (paper).
+
+  Next: M5, relief and torn edges.
 - 2026-11-01 — M4 started. **BLOCKED:** may I download the bundled image textures? Four CC0 zips from
   ambientcg.com (licence: CC0 1.0, no attribution required): Paper001_1K-JPG.zip (5.0 MB),
   Paper003_1K-JPG.zip (2.5 MB), Paper005_1K-JPG.zip (5.4 MB), Cardboard001_1K-JPG.zip (6.7 MB). Only each
