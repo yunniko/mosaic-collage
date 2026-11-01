@@ -1,0 +1,10 @@
+# Static site: one nginx container serving the export. Opt in with:
+#   docker compose --profile app up -d --build
+services:
+  app:
+    profiles: ["app"]
+    build: .
+    restart: unless-stopped
+    ports:
+      # Localhost only; the host's nginx vhost proxies mosaic.app.julienika.cz here (INFRASTRUCTURE.md).
+      - "127.0.0.1:30300:80"

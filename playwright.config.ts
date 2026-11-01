@@ -1,6 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
 
-/** The e2e suite runs against the static export: the same files production serves. */
+/**
+ * The e2e suite runs against the static export: the same files production serves. With `E2E_EXTERNAL=1` it uses a
+ * server already listening on the port instead (CI runs the production nginx image there).
+ */
 const PORT = 4317;
 const viewport = { width: 1440, height: 900 };
 
@@ -24,10 +27,12 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"], viewport: { width: 1194, height: 834 }, hasTouch: true },
     },
   ],
-  webServer: {
-    command: `npx serve out -l ${PORT} --no-clipboard`,
-    url: `http://localhost:${PORT}`,
-    reuseExistingServer: !process.env.CI,
-    timeout: 60_000,
-  },
+  webServer: process.env.E2E_EXTERNAL
+    ? undefined
+    : {
+        command: `npx serve out -l ${PORT} --no-clipboard`,
+        url: `http://localhost:${PORT}`,
+        reuseExistingServer: !process.env.CI,
+        timeout: 60_000,
+      },
 });

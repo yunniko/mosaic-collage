@@ -1,7 +1,7 @@
 name: CI
 
-# A public repo, so GitHub's own runners cost nothing. The e2e suite runs against `out/`, the static export production
-# serves (STANDARDS.md: verified means the path production runs).
+# A public repo, so GitHub's own runners cost nothing. The e2e suite runs against the production image itself: the
+# static export behind the same nginx config (STANDARDS.md: verified means the path production runs).
 on:
   push:
     branches: [main]
@@ -28,10 +28,13 @@ jobs:
       - run: npm run typecheck
       - run: npm run test:unit
       - run: npx playwright install --with-deps chromium firefox
-      # Builds the static export first, so the suite can never run against a stale `out/`.
-      - run: npm run test:e2e
+      # The image builds the export from this checkout, so the suite can never run against a stale build.
+      - run: docker build -t mosaic-collage .
+      - run: docker run -d --name mosaic -p 127.0.0.1:4317:80 mosaic-collage
+      - run: npx playwright test
         env:
           CI: "1"
+          E2E_EXTERNAL: "1"
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

@@ -11,9 +11,13 @@ test.beforeEach(async ({ page }) => {
   await expect(ui(page).trayItems.first()).toContainText("placed once");
 });
 
-/** Exports through the UI and returns the downloaded file. */
+/**
+ * Exports through the UI and returns the downloaded file. The confirmation is checked as the download starts: it
+ * lasts 4 s, and the browser may take longer than that to finish writing the file.
+ */
 async function exported(page: Page): Promise<{ bytes: Buffer; download: Download }> {
   const [download] = await Promise.all([page.waitForEvent("download"), page.getByTestId("export-start").click()]);
+  await expect(ui(page).notice(`Exported ${download.suggestedFilename()}`)).toBeVisible();
   return { bytes: await readFile(await download.path()), download };
 }
 
@@ -47,7 +51,6 @@ test("a PNG export has the announced size and the background behind the piece", 
   expect(size.width).toBe(Math.ceil((60 * 72) / 25.4));
 
   const { bytes, download } = await exported(page);
-  await expect(ui(page).notice(/Exported/)).toBeVisible();
   expect(download.suggestedFilename()).toMatch(/\.png$/);
   expect(bytes.subarray(1, 4).toString("latin1")).toBe("PNG");
   const img = await decode(page, bytes, "image/png");
