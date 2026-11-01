@@ -1,5 +1,5 @@
 import type { Vec } from "../geometry/vec";
-import { DEFAULT_BACKGROUND, DEFAULT_BOARD, DEFAULT_RELIEF, DEFAULT_TEXTURE_TRANSFORM, defaultTornEdge } from "./defaults";
+import { DEFAULT_BACKGROUND, DEFAULT_BOARD, DEFAULT_RELIEF, DEFAULT_TEXTURE_TRANSFORM, FALLBACK_COLOR, defaultTornEdge } from "./defaults";
 import {
   type AssetMeta,
   type Background,
@@ -13,6 +13,7 @@ import {
   type Piece,
   type Placement,
   type Relief,
+  RELIEF_STYLES,
   type ShapeSource,
   type TextureSource,
   type TextureTransform,
@@ -35,6 +36,7 @@ const str = (v: unknown, d: string) => (typeof v === "string" ? v : d);
 const bool = (v: unknown, d: boolean) => (typeof v === "boolean" ? v : d);
 const COLOR = /^#[0-9a-f]{6}$/i;
 const color = (v: unknown, d: string) => (typeof v === "string" && COLOR.test(v) ? v.toLowerCase() : d);
+const colorList = (v: unknown) => (Array.isArray(v) ? v.slice(0, 8).map((c) => color(c, FALLBACK_COLOR)) : []);
 const id = (v: unknown) => (typeof v === "string" && v.length > 0 && v.length <= 64 ? v : null);
 
 function params(v: unknown): Params {
@@ -72,15 +74,15 @@ function texture(v: unknown): TextureSource {
         kind: "generated",
         generatorId: v.generatorId,
         params: params(v.params),
-        colors: Array.isArray(v.colors) ? v.colors.map((c) => color(c, "#888888")).slice(0, 8) : [],
+        colors: colorList(v.colors),
         seed: num(v.seed, 1) >>> 0,
       };
     const assetId = id(v.assetId);
     if (v.kind === "image" && assetId) return { kind: "image", assetId };
     if (v.kind === "pdf" && assetId) return { kind: "pdf", assetId, page: Math.round(num(v.page, 1, 1, 10000)) };
-    if (v.kind === "plain") return { kind: "plain", color: color(v.color, "#888888") };
+    if (v.kind === "plain") return { kind: "plain", color: color(v.color, FALLBACK_COLOR) };
   }
-  return { kind: "plain", color: "#888888" };
+  return { kind: "plain", color: FALLBACK_COLOR };
 }
 
 function textureTransform(v: unknown): TextureTransform {
@@ -120,7 +122,7 @@ function colorLayers(v: unknown): ColorLayer[] {
 function relief(v: unknown): Relief {
   const o = isObj(v) ? v : {};
   const d = DEFAULT_RELIEF;
-  const style = ["none", "bevel", "emboss", "pillow"].includes(o.style as string) ? (o.style as Relief["style"]) : d.style;
+  const style = (RELIEF_STYLES as readonly unknown[]).includes(o.style) ? (o.style as Relief["style"]) : d.style;
   return {
     style,
     size: num(o.size, d.size, 0.1, 50),
@@ -134,6 +136,7 @@ function relief(v: unknown): Relief {
 
 function edge(v: unknown): TornEdge {
   const o = isObj(v) ? v : {};
+  // Every field's default; the seed is read from the file below like the rest.
   const d = defaultTornEdge(1);
   return {
     enabled: bool(o.enabled, d.enabled),
@@ -196,14 +199,14 @@ function background(v: unknown, assetIds: Set<string>): Background {
       kind: "texture",
       generatorId: o.generatorId,
       params: params(o.params),
-      colors: Array.isArray(o.colors) ? o.colors.map((c) => color(c, "#888888")).slice(0, 8) : [],
+      colors: colorList(o.colors),
       seed: num(o.seed, 1) >>> 0,
       padding,
     };
   const assetId = id(o.assetId);
   if (o.kind === "image" && assetId && assetIds.has(assetId))
     return { kind: "image", assetId, fit: o.fit === "tile" ? "tile" : "cover", padding };
-  return { kind: "color", color: color(o.color, (DEFAULT_BACKGROUND as { color: string }).color), padding };
+  return { kind: "color", color: color(o.color, DEFAULT_BACKGROUND.color), padding };
 }
 
 function assets(v: unknown): AssetMeta[] {
@@ -238,7 +241,7 @@ export function parseDocument(json: unknown, availableAssets?: ReadonlySet<strin
     if (!p || seen.has(p.id)) continue;
     if ((p.texture.kind === "image" || p.texture.kind === "pdf") && !assetIds.has(p.texture.assetId)) {
       warnings.push(`The texture file of "${p.name}" is missing; it was given a plain colour.`);
-      p.texture = { kind: "plain", color: "#888888" };
+      p.texture = { kind: "plain", color: FALLBACK_COLOR };
     }
     seen.add(p.id);
     pieces.push(p);

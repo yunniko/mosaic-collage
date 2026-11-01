@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type Bounds, polygonBounds } from "@/lib/geometry/polygon";
+import type { Vec } from "@/lib/geometry/vec";
 import { pieceOutline } from "@/lib/shapes/outline";
-import { type Camera, fitBounds, panBy, zoomAt } from "@/lib/view/camera";
-import { prepareCanvas, useElementSize } from "../components/canvas-hooks";
+import { type Camera, fitBounds, panBy, pinch, wheelZoom } from "@/lib/view/camera";
+import { applyCamera, canvasPoint, dpr, prepareCanvas, useElementSize } from "../components/canvas-hooks";
 import { drawSpriteAtOrigin, getSprite } from "../render/sprites";
 import { drawCuttingMat } from "../render/surfaces";
 import { useAppState, useDoc } from "../state/store";
@@ -51,13 +52,12 @@ export function CutboardCanvas() {
     if (!piece) return;
     let sprite;
     try {
-      sprite = getSprite(piece, cam.zoom * (window.devicePixelRatio || 1));
+      sprite = getSprite(piece, cam.zoom * dpr());
     } catch {
       return;
     }
     ctx.save();
-    ctx.translate(width / 2 - cam.x * cam.zoom, height / 2 - cam.y * cam.zoom);
-    ctx.scale(cam.zoom, cam.zoom);
+    applyCamera(ctx, cam, width, height);
     ctx.shadowColor = "rgba(0,0,0,0.35)";
     ctx.shadowBlur = 8;
     ctx.shadowOffsetX = 3;
@@ -85,41 +85,29 @@ function usePanZoom(
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
-    const pointers = new Map<number, { x: number; y: number }>();
-    let pinch = 0;
-    const local = (e: PointerEvent | WheelEvent) => {
-      const r = canvas.getBoundingClientRect();
-      return { x: e.clientX - r.left, y: e.clientY - r.top };
-    };
+    const pointers = new Map<number, Vec>();
     const down = (e: PointerEvent) => {
       canvas.setPointerCapture(e.pointerId);
-      pointers.set(e.pointerId, local(e));
-      if (pointers.size === 2) {
-        const [a, b] = [...pointers.values()];
-        pinch = Math.hypot(a.x - b.x, a.y - b.y);
-      }
+      pointers.set(e.pointerId, canvasPoint(canvas, e));
     };
     const move = (e: PointerEvent) => {
       const prev = pointers.get(e.pointerId);
       if (!prev) return;
-      const p = local(e);
-      pointers.set(e.pointerId, p);
+      const p = canvasPoint(canvas, e);
       if (pointers.size === 1) setCam((c) => panBy(c, p.x - prev.x, p.y - prev.y));
       else if (pointers.size === 2) {
-        const [a, b] = [...pointers.values()];
-        const d = Math.hypot(a.x - b.x, a.y - b.y);
-        const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-        if (pinch > 0) setCam((c) => zoomAt(c, mid, d / pinch, width, height));
-        pinch = d;
+        // The finger that moved, against the one that stayed put.
+        const other = [...pointers].find(([id]) => id !== e.pointerId)![1];
+        setCam((c) => pinch(c, { a: prev, b: other }, p, other, width, height));
       }
+      pointers.set(e.pointerId, p);
     };
     const up = (e: PointerEvent) => {
       pointers.delete(e.pointerId);
-      pinch = 0;
     };
     const wheel = (e: WheelEvent) => {
       e.preventDefault();
-      setCam((c) => zoomAt(c, local(e), Math.exp(-e.deltaY * 0.0015), width, height));
+      setCam((c) => wheelZoom(c, canvasPoint(canvas, e), e.deltaY, width, height));
     };
     canvas.addEventListener("pointerdown", down);
     canvas.addEventListener("pointermove", move);

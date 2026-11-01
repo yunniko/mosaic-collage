@@ -11,7 +11,13 @@ test.beforeEach(async ({ page }) => {
 test("a piece is placed by dragging it from the tray and by clicking it", async ({ page }) => {
   const u = ui(page);
   const board = (await u.board.boundingBox())!;
-  await mouseDrag(page, await centreOf(u.trayItems.first()), { x: board.x + board.width * 0.3, y: board.y + board.height * 0.4 }, 20);
+  // One wheel notch while the piece comes in from the tray turns it once: 15°.
+  const from = await centreOf(u.trayItems.first());
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(board.x + board.width * 0.3, board.y + board.height * 0.4, { steps: 20 });
+  await page.mouse.wheel(0, 100);
+  await page.mouse.up();
   await expect(u.trayItems.first()).toContainText("placed once");
 
   await u.trayItems.first().click();
@@ -20,6 +26,7 @@ test("a piece is placed by dragging it from the tray and by clicking it", async 
   expect(doc.placements).toHaveLength(2);
   // The dragged copy landed left of the clicked one, which goes to the middle of the view.
   expect(doc.placements[0].pose.x).toBeLessThan(doc.placements[1].pose.x - 10);
+  expect(doc.placements[0].pose.rotation).toBeCloseTo(Math.PI / 12, 5);
 });
 
 test("a placed piece moves, turns under the wheel while held, and locks", async ({ page }) => {

@@ -70,7 +70,8 @@ export type ColorLayer =
   /** hue in degrees (-180..180); saturation and lightness in -1..1. */
   | { kind: "hsl"; hue: number; saturation: number; lightness: number };
 
-export type ReliefStyle = "none" | "bevel" | "emboss" | "pillow";
+export const RELIEF_STYLES = ["none", "bevel", "emboss", "pillow"] as const;
+export type ReliefStyle = (typeof RELIEF_STYLES)[number];
 
 export interface Relief {
   style: ReliefStyle;

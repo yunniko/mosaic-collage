@@ -4,9 +4,12 @@ import type { Piece } from "@/lib/document/types";
 import { type PieceSprite, renderPiece } from "@/lib/render/piece";
 import { pieceOutline } from "@/lib/shapes/outline";
 
+/** A rendered piece uploaded to a canvas; the RGBA buffer is not kept. Origin and scale as in `PieceSprite`. */
 export interface CanvasSprite {
   canvas: HTMLCanvasElement;
-  sprite: PieceSprite;
+  scale: number;
+  originX: number;
+  originY: number;
 }
 
 /** Power-of-two px/mm steps a sprite is rendered at; a board draws the smallest step at or above what it needs. */
@@ -20,7 +23,7 @@ export function scaleStep(pxPerMm: number): number {
 
 const cache = new WeakMap<Piece, Map<number, CanvasSprite>>();
 
-export function spriteToCanvas(sprite: PieceSprite): HTMLCanvasElement {
+function spriteToCanvas(sprite: PieceSprite): HTMLCanvasElement {
   const canvas = document.createElement("canvas");
   canvas.width = sprite.image.width;
   canvas.height = sprite.image.height;
@@ -43,7 +46,7 @@ export function getSprite(piece: Piece, pxPerMm: number): CanvasSprite {
   let s = byStep.get(step);
   if (!s) {
     const sprite = renderPiece(piece, pieceOutline(piece), step);
-    s = { canvas: spriteToCanvas(sprite), sprite };
+    s = { canvas: spriteToCanvas(sprite), scale: sprite.scale, originX: sprite.originX, originY: sprite.originY };
     byStep.set(step, s);
   }
   return s;
@@ -51,6 +54,6 @@ export function getSprite(piece: Piece, pxPerMm: number): CanvasSprite {
 
 /** Draws a sprite with its local origin at the current transform's origin, sized in mm. */
 export function drawSpriteAtOrigin(ctx: CanvasRenderingContext2D, s: CanvasSprite) {
-  const k = 1 / s.sprite.scale;
-  ctx.drawImage(s.canvas, -s.sprite.originX * k, -s.sprite.originY * k, s.canvas.width * k, s.canvas.height * k);
+  const k = 1 / s.scale;
+  ctx.drawImage(s.canvas, -s.originX * k, -s.originY * k, s.canvas.width * k, s.canvas.height * k);
 }

@@ -36,9 +36,13 @@ function getWoodTile(): HTMLCanvasElement {
   return c;
 }
 
+/** The wood pattern, created once per canvas context. */
+const tablePatterns = new WeakMap<CanvasRenderingContext2D, CanvasPattern>();
+
 /** Fills the whole canvas with the table top, anchored to the board so it moves with panning and zooming. */
 export function drawTable(ctx: CanvasRenderingContext2D, cam: Camera, w: number, h: number) {
-  const pattern = ctx.createPattern(getWoodTile(), "repeat")!;
+  let pattern = tablePatterns.get(ctx);
+  if (!pattern) tablePatterns.set(ctx, (pattern = ctx.createPattern(getWoodTile(), "repeat")!));
   // One tile spans 400 mm of table.
   const k = (400 / 512) * cam.zoom;
   const origin = { x: w / 2 - cam.x * cam.zoom, y: h / 2 - cam.y * cam.zoom };

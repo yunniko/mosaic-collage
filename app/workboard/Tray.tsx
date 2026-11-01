@@ -2,12 +2,10 @@
 
 import { useTranslations } from "next-intl";
 import { placementCount } from "@/lib/document/ops";
+import { CLICK_SLOP } from "../components/canvas-hooks";
 import { PieceThumb } from "../components/PieceThumb";
 import { useDoc } from "../state/store";
 import { incoming } from "./incoming";
-
-/** Screen pixels a press may wander before it becomes a drag rather than a click. */
-const CLICK_SLOP = 4;
 
 /** The pieces made on the cutboard. Drag one onto the board, or click it to place it in the middle of the view. */
 export function Tray() {
@@ -21,31 +19,24 @@ export function Tray() {
     const start = { x: e.clientX, y: e.clientY };
     let dragging = false;
     const report = (ev: PointerEvent, phase: "move" | "drop") =>
-      incoming.emit({ pieceId, clientX: ev.clientX, clientY: ev.clientY, wheel: 0 }, phase);
+      incoming.emit({ phase, pieceId, clientX: ev.clientX, clientY: ev.clientY });
     const move = (ev: PointerEvent) => {
       if (!dragging && Math.hypot(ev.clientX - start.x, ev.clientY - start.y) > CLICK_SLOP) dragging = true;
       if (dragging) report(ev, "move");
-    };
-    const wheel = (ev: WheelEvent) => {
-      if (!dragging) return;
-      ev.preventDefault();
-      incoming.emit({ pieceId, clientX: ev.clientX, clientY: ev.clientY, wheel: ev.deltaY }, "wheel");
     };
     const end = (ev: PointerEvent) => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", end);
       window.removeEventListener("pointercancel", end);
-      window.removeEventListener("wheel", wheel);
-      if (ev.type === "pointercancel") report({ ...ev, clientX: -1e6, clientY: -1e6 } as PointerEvent, "drop");
+      if (ev.type === "pointercancel") incoming.emit({ phase: "cancel", pieceId });
       else if (dragging) report(ev, "drop");
-      else incoming.emit({ pieceId, clientX: ev.clientX, clientY: ev.clientY, wheel: 0 }, "click");
+      else incoming.emit({ phase: "click", pieceId });
     };
     // A touch press on the tray would otherwise stay captured by the tray item; release it so moves reach the window.
     (e.target as Element).releasePointerCapture?.(e.pointerId);
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", end);
     window.addEventListener("pointercancel", end);
-    window.addEventListener("wheel", wheel, { passive: false });
   };
 
   return (
@@ -62,7 +53,7 @@ export function Tray() {
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  incoming.emit({ pieceId: p.id, clientX: 0, clientY: 0, wheel: 0 }, "click");
+                  incoming.emit({ phase: "click", pieceId: p.id });
                 }
               }}
               data-testid="tray-item"

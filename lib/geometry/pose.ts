@@ -1,5 +1,5 @@
 import type { Polygon } from "./polygon";
-import type { Vec } from "./vec";
+import { rotateAbout, type Vec } from "./vec";
 
 /**
  * Where a placed piece sits: its local origin (the outline's centroid) at (x, y), turned by `rotation` radians.
@@ -26,9 +26,7 @@ export function worldToLocal(p: Vec, pose: Pose): Vec {
 }
 
 export function transformPolygon(poly: readonly Vec[], pose: Pose): Polygon {
-  const c = Math.cos(pose.rotation);
-  const s = Math.sin(pose.rotation);
-  return poly.map((p) => ({ x: pose.x + p.x * c - p.y * s, y: pose.y + p.x * s + p.y * c }));
+  return poly.map((p) => localToWorld(p, pose));
 }
 
 /**
@@ -36,16 +34,11 @@ export function transformPolygon(poly: readonly Vec[], pose: Pose): Polygon {
  * this is how a piece turns about its grab point or about a contact point.
  */
 export function rotatePoseAbout(pose: Pose, pivot: Vec, delta: number): Pose {
-  const c = Math.cos(delta);
-  const s = Math.sin(delta);
-  const dx = pose.x - pivot.x;
-  const dy = pose.y - pivot.y;
-  return { x: pivot.x + dx * c - dy * s, y: pivot.y + dx * s + dy * c, rotation: pose.rotation + delta };
+  return { ...rotateAbout(pose, pivot, delta), rotation: pose.rotation + delta };
 }
 
 /** The pose that puts the local point `local` at the world point `target`, keeping `rotation`. */
 export function poseWithLocalAt(local: Vec, target: Vec, rotation: number): Pose {
-  const c = Math.cos(rotation);
-  const s = Math.sin(rotation);
-  return { x: target.x - (local.x * c - local.y * s), y: target.y - (local.x * s + local.y * c), rotation };
+  const at = localToWorld(local, { x: 0, y: 0, rotation });
+  return { x: target.x - at.x, y: target.y - at.y, rotation };
 }

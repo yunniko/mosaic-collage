@@ -13,6 +13,9 @@ export const cross = (a: Vec, b: Vec): number => a.x * b.y - a.y * b.x;
 export const length = (a: Vec): number => Math.hypot(a.x, a.y);
 export const distance = (a: Vec, b: Vec): number => Math.hypot(a.x - b.x, a.y - b.y);
 export const lerp = (a: Vec, b: Vec, t: number): Vec => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+export const midpoint = (a: Vec, b: Vec): Vec => lerp(a, b, 0.5);
+/** The direction of the line from `a` to `b`, in radians (clockwise on screen). */
+export const angleBetween = (a: Vec, b: Vec): number => Math.atan2(b.y - a.y, b.x - a.x);
 
 /** Rotate `p` by `angle` radians (counter-clockwise in a y-up frame, clockwise on screen) about `center`. */
 export function rotateAbout(p: Vec, center: Vec, angle: number): Vec {

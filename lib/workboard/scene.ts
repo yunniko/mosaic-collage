@@ -6,7 +6,6 @@ import { pieceOutline } from "../shapes/outline";
 import { getPiece } from "../document/ops";
 
 export interface PlacedShape {
-  placement: Placement;
   outline: Polygon;
   bounds: Bounds;
 }
@@ -18,7 +17,7 @@ export function placedShape(doc: MosaicDocument, placement: Placement): PlacedSh
   let s = worldCache.get(placement);
   if (!s) {
     const outline = transformPolygon(pieceOutline(getPiece(doc, placement.pieceId)), placement.pose);
-    s = { placement, outline, bounds: polygonBounds(outline) };
+    s = { outline, bounds: polygonBounds(outline) };
     worldCache.set(placement, s);
   }
   return s;
@@ -35,21 +34,30 @@ export function hitTest(doc: MosaicDocument, p: Vec): Placement | null {
   return null;
 }
 
-/** The bounds of every placed piece, or null on an empty board. */
-export function contentBounds(doc: MosaicDocument): Bounds | null {
+const contentCache = new WeakMap<MosaicDocument, Map<string, Bounds | null>>();
+
+/** The bounds of every placed piece but `exclude`, or null if there are none. Cached per document object. */
+function contentBounds(doc: MosaicDocument, exclude = ""): Bounds | null {
+  let byExclude = contentCache.get(doc);
+  if (!byExclude) contentCache.set(doc, (byExclude = new Map()));
+  if (byExclude.has(exclude)) return byExclude.get(exclude)!;
   let b: Bounds | null = null;
   for (const pl of doc.placements) {
+    if (pl.id === exclude) continue;
     const s = placedShape(doc, pl).bounds;
     b = b ? unionBounds(b, s) : s;
   }
+  byExclude.set(exclude, b);
   return b;
 }
 
 /**
  * The artwork's extent: the placed pieces plus the background's padding. The workspace has no fixed size; this is
- * the area the background covers and the export crops to.
+ * the area the background covers and the export crops to. Mid-drag, `moving` names the placement in hand (left out,
+ * if it is already on the board) and its bounds where it is now (added), so the background follows the piece.
  */
-export function artworkBounds(doc: MosaicDocument): Bounds | null {
-  const b = contentBounds(doc);
+export function artworkBounds(doc: MosaicDocument, moving?: { exclude?: string; bounds: Bounds }): Bounds | null {
+  const rest = contentBounds(doc, moving?.exclude);
+  const b = moving ? (rest ? unionBounds(rest, moving.bounds) : moving.bounds) : rest;
   return b ? expandBounds(b, doc.background.padding) : null;
 }

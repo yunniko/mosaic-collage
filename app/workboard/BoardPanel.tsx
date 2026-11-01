@@ -59,7 +59,7 @@ export function BoardPanel() {
       </Section>
       <Section title={t("selection", { count: chosen.length })} testId="selection-actions">
         <div className="flex flex-wrap gap-1.5">
-          <button type="button" className="btn" disabled={none} onClick={() => act.setLocked(!allLocked)} data-testid="toggle-lock">
+          <button type="button" className="btn" disabled={none} onClick={act.toggleLock} data-testid="toggle-lock">
             {allLocked ? t("unlock") : t("lock")}
           </button>
           <button

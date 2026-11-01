@@ -2,20 +2,14 @@
 
 import type { MosaicDocument, Piece, Placement } from "@/lib/document/types";
 import type { Pose } from "@/lib/geometry/pose";
-import type { Polygon } from "@/lib/geometry/polygon";
+import { type Bounds, type Polygon, boundsOverlap } from "@/lib/geometry/polygon";
 import type { Camera } from "@/lib/view/camera";
-import { artworkBounds } from "@/lib/workboard/scene";
+import { placedShape } from "@/lib/workboard/scene";
+import { dpr } from "../components/canvas-hooks";
 import { drawSpriteAtOrigin, getSprite } from "../render/sprites";
 
-/** Sets the context so drawing is in board millimetres under `cam`. */
-export function applyCamera(ctx: CanvasRenderingContext2D, cam: Camera, w: number, h: number) {
-  ctx.translate(w / 2 - cam.x * cam.zoom, h / 2 - cam.y * cam.zoom);
-  ctx.scale(cam.zoom, cam.zoom);
-}
-
 /** The background under the artwork: it covers the placed pieces' extent plus its padding, so it grows with them. */
-export function drawArtworkBackground(ctx: CanvasRenderingContext2D, doc: MosaicDocument) {
-  const b = artworkBounds(doc);
+export function drawArtworkBackground(ctx: CanvasRenderingContext2D, doc: MosaicDocument, b: Bounds | null) {
   if (!b) return;
   ctx.save();
   ctx.shadowColor = "rgba(0,0,0,0.3)";
@@ -28,7 +22,7 @@ export function drawArtworkBackground(ctx: CanvasRenderingContext2D, doc: Mosaic
 
 /** One piece at a pose, with the board's drop shadow. The shadow is in screen space, so it falls the same way at any rotation. */
 export function drawPiece(ctx: CanvasRenderingContext2D, piece: Piece, pose: Pose, cam: Camera, shadow: number, lifted = false) {
-  const sprite = getSprite(piece, cam.zoom * (window.devicePixelRatio || 1));
+  const sprite = getSprite(piece, cam.zoom * dpr());
   ctx.save();
   ctx.translate(pose.x, pose.y);
   ctx.rotate(pose.rotation);
@@ -44,11 +38,18 @@ export function drawPiece(ctx: CanvasRenderingContext2D, piece: Piece, pose: Pos
   ctx.restore();
 }
 
-export function drawPlacements(ctx: CanvasRenderingContext2D, doc: MosaicDocument, placements: readonly Placement[], cam: Camera) {
+/** The placements whose outline reaches into `view` (board mm), with the board's shadow. */
+export function drawPlacements(
+  ctx: CanvasRenderingContext2D,
+  doc: MosaicDocument,
+  placements: readonly Placement[],
+  cam: Camera,
+  view: Bounds
+) {
   const byId = new Map(doc.pieces.map((p) => [p.id, p]));
   for (const pl of placements) {
     const piece = byId.get(pl.pieceId);
-    if (piece) drawPiece(ctx, piece, pl.pose, cam, doc.board.shadow);
+    if (piece && boundsOverlap(placedShape(doc, pl).bounds, view)) drawPiece(ctx, piece, pl.pose, cam, doc.board.shadow);
   }
 }
 

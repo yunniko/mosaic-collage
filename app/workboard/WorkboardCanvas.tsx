@@ -3,35 +3,38 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { getPiece, movePlacement, placePiece } from "@/lib/document/ops";
+import { newId } from "@/lib/document/defaults";
 import type { MosaicDocument, Placement } from "@/lib/document/types";
 import { type Pose, transformPolygon, worldToLocal } from "@/lib/geometry/pose";
-import { angleDelta, type Vec } from "@/lib/geometry/vec";
+import { type Bounds, polygonBounds } from "@/lib/geometry/polygon";
+import { angleBetween, angleDelta, distance, type Vec } from "@/lib/geometry/vec";
 import { pieceOutline } from "@/lib/shapes/outline";
-import { type Camera, fitBounds, panBy, screenToWorld, zoomAt } from "@/lib/view/camera";
+import { type Camera, fitBounds, panBy, pinch, screenToWorld, wheelZoom } from "@/lib/view/camera";
 import { type DragState, dragTo, rotateDrag, startDrag } from "@/lib/workboard/drag";
 import { artworkBounds, hitTest, placedShape } from "@/lib/workboard/scene";
-import { prepareCanvas, useElementSize } from "../components/canvas-hooks";
+import { CLICK_SLOP, applyCamera, canvasPoint, prepareCanvas, useElementSize } from "../components/canvas-hooks";
 import { drawTable } from "../render/surfaces";
 import { errorText } from "../state/errors";
 import { store, useAppState } from "../state/store";
-import { applyCamera, drawArtworkBackground, drawLockBadge, drawOutlineMark, drawPiece, drawPlacements } from "./draw";
-import { type IncomingPiece, incoming } from "./incoming";
+import { drawArtworkBackground, drawLockBadge, drawOutlineMark, drawPiece, drawPlacements } from "./draw";
+import { type IncomingEvent, incoming } from "./incoming";
 
 /** Radians per wheel "notch" (deltaY 100) while dragging: 15°, or 1° with Shift held. */
 const WHEEL_ROTATE = (15 * Math.PI) / 180 / 100;
 const WHEEL_ROTATE_FINE = Math.PI / 180 / 100;
-/** Screen pixels a press may wander before it counts as a drag rather than a click. */
-const CLICK_SLOP = 4;
+/** Screen pixels around the view still drawn, so shadows of pieces just outside it are not cut off. */
+const CULL_MARGIN_PX = 40;
+
+/** Where a dragged piece came from: a placement held by a board pointer, or a tray piece not yet on the board. */
+type DragSource = { kind: "board"; placementId: string; pointerId: number } | { kind: "tray" };
 
 type Gesture =
   | { kind: "none" }
   | { kind: "pan"; pointerId: number; last: Vec; start: Vec; moved: boolean }
-  | { kind: "pinch"; last: { d: number; mid: Vec } }
+  | { kind: "pinch"; last: { a: Vec; b: Vec } }
   | {
       kind: "drag";
-      pointerId: number;
-      /** null while a piece comes in from the tray and is not yet on the board. */
-      placementId: string | null;
+      source: DragSource;
       pieceId: string;
       state: DragState;
       start: Vec;
@@ -75,15 +78,18 @@ export function WorkboardCanvas() {
     const doc = store.doc;
     const cam = camRef.current;
     const g = gestureRef.current;
-    const activeId = g.kind === "drag" ? g.placementId : null;
+    const activeId = g.kind === "drag" && g.source.kind === "board" ? g.source.placementId : null;
     const ctx = prepareCanvas(canvas, w, h);
 
     // The artwork's extent follows the piece in hand too, so the background grows as it is dragged outward.
-    const shown = g.kind === "drag" ? withPose(doc, g) : doc;
+    const moving =
+      g.kind === "drag"
+        ? { exclude: activeId ?? undefined, bounds: polygonBounds(transformPolygon(g.state.outline, g.state.pose)) }
+        : undefined;
     drawTable(ctx, cam, w, h);
     ctx.save();
     applyCamera(ctx, cam, w, h);
-    drawArtworkBackground(ctx, shown);
+    drawArtworkBackground(ctx, doc, artworkBounds(doc, moving));
     ctx.restore();
 
     const layer = staticLayer(layerRef, doc, cam, w, h, activeId);
@@ -129,21 +135,16 @@ export function WorkboardCanvas() {
 
   const toWorld = useCallback((p: Vec) => screenToWorld(camRef.current, p, sizeRef.current.width, sizeRef.current.height), []);
 
-  /** Ends a drag: a moved placement is recorded as one undo step; a piece from the tray is placed. */
+  /** Records a drop as one undo step: a placement gets its new pose; a piece without one is placed and selected. */
   const finishDrag = useCallback(
-    (g: Extract<Gesture, { kind: "drag" }>) => {
+    (pieceId: string, pose: Pose, placementId?: string) => {
       const onError = (e: unknown) => store.notify("error", errorText(t, e));
-      if (g.placementId === null) {
-        let id = "";
-        store.apply((d) => {
-          const r = placePiece(d, g.pieceId, g.state.pose);
-          id = r.id;
-          return r.doc;
-        }, onError);
-        if (id) store.set({ selectedPlacementIds: [id] });
-      } else if (g.moved) {
-        store.apply((d) => movePlacement(d, g.placementId!, g.state.pose), onError);
+      if (placementId) {
+        store.apply((d) => movePlacement(d, placementId, pose), onError);
+        return;
       }
+      const id = newId();
+      if (store.apply((d) => placePiece(d, pieceId, pose, id).doc, onError)) store.set({ selectedPlacementIds: [id] });
     },
     [t]
   );
@@ -153,10 +154,7 @@ export function WorkboardCanvas() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const pointers = pointersRef.current;
-    const local = (e: { clientX: number; clientY: number }) => {
-      const r = canvas.getBoundingClientRect();
-      return { x: e.clientX - r.left, y: e.clientY - r.top };
-    };
+    const local = (e: { clientX: number; clientY: number }) => canvasPoint(canvas, e);
 
     const beginDragOf = (pl: Placement, pointerId: number, screen: Vec) => {
       const doc = store.doc;
@@ -164,8 +162,7 @@ export function WorkboardCanvas() {
       const grab = worldToLocal(toWorld(screen), pl.pose);
       gestureRef.current = {
         kind: "drag",
-        pointerId,
-        placementId: pl.id,
+        source: { kind: "board", placementId: pl.id, pointerId },
         pieceId: pl.pieceId,
         state: startDrag(outline, pl.pose, grab),
         start: screen,
@@ -181,16 +178,17 @@ export function WorkboardCanvas() {
       pointers.set(e.pointerId, p);
       const g = gestureRef.current;
 
+      // A piece coming in from the tray keeps the gesture until the tray's pointer drops it.
+      if (g.kind === "drag" && g.source.kind === "tray") return;
       if (pointers.size === 2) {
         const [a, b] = [...pointers.entries()];
-        if (g.kind === "drag") {
+        if (g.kind === "drag" && g.source.kind === "board") {
           // A second finger while holding a piece turns it about the grab point.
-          const other = a[0] === g.pointerId ? b[1] : a[1];
-          const held = pointers.get(g.pointerId)!;
-          g.twist = { pointerId: e.pointerId, angle: Math.atan2(other.y - held.y, other.x - held.x) };
+          const held = pointers.get(g.source.pointerId)!;
+          g.twist = { pointerId: e.pointerId, angle: angleBetween(held, p) };
           return;
         }
-        gestureRef.current = { kind: "pinch", last: { d: Math.hypot(a[1].x - b[1].x, a[1].y - b[1].y), mid: mid(a[1], b[1]) } };
+        gestureRef.current = { kind: "pinch", last: { a: a[1], b: b[1] } };
         return;
       }
       if (pointers.size > 2) return;
@@ -224,32 +222,27 @@ export function WorkboardCanvas() {
       if (g.kind === "pan" && e.pointerId === g.pointerId) {
         camRef.current = panBy(camRef.current, p.x - g.last.x, p.y - g.last.y);
         g.last = p;
-        if (Math.hypot(p.x - g.start.x, p.y - g.start.y) > CLICK_SLOP) g.moved = true;
+        if (distance(p, g.start) > CLICK_SLOP) g.moved = true;
         redraw();
       } else if (g.kind === "pinch" && pointers.size === 2) {
         const [a, b] = [...pointers.values()];
-        const d = Math.hypot(a.x - b.x, a.y - b.y);
-        const m = mid(a, b);
-        let cam = panBy(camRef.current, m.x - g.last.mid.x, m.y - g.last.mid.y);
-        if (g.last.d > 0) cam = zoomAt(cam, m, d / g.last.d, sizeRef.current.width, sizeRef.current.height);
-        camRef.current = cam;
-        g.last = { d, mid: m };
+        camRef.current = pinch(camRef.current, g.last, a, b, sizeRef.current.width, sizeRef.current.height);
+        g.last = { a, b };
         redraw();
-      } else if (g.kind === "drag") {
-        if (g.twist && (e.pointerId === g.twist.pointerId || e.pointerId === g.pointerId)) {
-          const held = pointers.get(g.pointerId)!;
-          const other = pointers.get(g.twist.pointerId)!;
-          const angle = Math.atan2(other.y - held.y, other.x - held.x);
+      } else if (g.kind === "drag" && g.source.kind === "board") {
+        const held = g.source.pointerId;
+        if (g.twist && (e.pointerId === g.twist.pointerId || e.pointerId === held)) {
+          const angle = angleBetween(pointers.get(held)!, pointers.get(g.twist.pointerId)!);
           g.state = rotateDrag(g.state, angleDelta(g.twist.angle, angle));
           g.twist.angle = angle;
           g.moved = true;
         }
-        if (e.pointerId === g.pointerId) {
-          if (Math.hypot(p.x - g.start.x, p.y - g.start.y) > CLICK_SLOP) g.moved = true;
+        if (e.pointerId === held) {
+          if (distance(p, g.start) > CLICK_SLOP) g.moved = true;
           if (g.moved) g.state = dragTo(g.state, toWorld(p));
         }
         redraw();
-      } else if (g.kind === "locked" && !g.warned && Math.hypot(p.x - g.start.x, p.y - g.start.y) > CLICK_SLOP) {
+      } else if (g.kind === "locked" && !g.warned && distance(p, g.start) > CLICK_SLOP) {
         g.warned = true;
         store.notify("info", t("workboard.lockedNotice"));
       }
@@ -259,17 +252,15 @@ export function WorkboardCanvas() {
       pointers.delete(e.pointerId);
       const g = gestureRef.current;
       if (g.kind === "drag") {
+        // A tray drag belongs to the tray's pointer; its drop arrives through `incoming`.
+        if (g.source.kind !== "board") return;
         if (g.twist && e.pointerId === g.twist.pointerId) {
           g.twist = null;
           return;
         }
-        if (e.pointerId !== g.pointerId) return;
+        if (e.pointerId !== g.source.pointerId) return;
         gestureRef.current = { kind: "none" };
-        if (e.type === "pointercancel") {
-          redraw();
-          return;
-        }
-        finishDrag(g);
+        if (e.type !== "pointercancel" && g.moved) finishDrag(g.pieceId, g.state.pose, g.source.placementId);
         redraw();
         return;
       }
@@ -290,7 +281,7 @@ export function WorkboardCanvas() {
         g.state = rotateDrag(g.state, delta * (e.shiftKey ? WHEEL_ROTATE_FINE : WHEEL_ROTATE));
         g.moved = true;
       } else {
-        camRef.current = zoomAt(camRef.current, local(e), Math.exp(-delta * 0.0015), sizeRef.current.width, sizeRef.current.height);
+        camRef.current = wheelZoom(camRef.current, local(e), delta, sizeRef.current.width, sizeRef.current.height);
       }
       redraw();
     };
@@ -313,55 +304,38 @@ export function WorkboardCanvas() {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    return incoming.subscribe((inc: IncomingPiece | null, phase) => {
-      const r = canvas.getBoundingClientRect();
-      if (!inc) return;
-      const p = { x: inc.clientX - r.left, y: inc.clientY - r.top };
-      const over = p.x >= 0 && p.y >= 0 && p.x <= r.width && p.y <= r.height;
+    return incoming.subscribe((e: IncomingEvent) => {
       const g = gestureRef.current;
-      if (phase === "move") {
-        if (over && g.kind !== "drag") {
-          const outline = pieceOutline(getPiece(store.doc, inc.pieceId));
+      const fromTray = g.kind === "drag" && g.source.kind === "tray" ? g : null;
+      if (e.phase === "click") {
+        // A click on the tray places the piece in the middle of the view.
+        const { width: w, height: h } = sizeRef.current;
+        const centre = toWorld({ x: w / 2, y: h / 2 });
+        finishDrag(e.pieceId, { x: centre.x, y: centre.y, rotation: 0 });
+      } else if (e.phase === "cancel") {
+        if (fromTray) gestureRef.current = { kind: "none" };
+      } else {
+        const p = canvasPoint(canvas, e);
+        const over = p.x >= 0 && p.y >= 0 && p.x <= sizeRef.current.width && p.y <= sizeRef.current.height;
+        if (e.phase === "drop" || !over) {
+          if (fromTray && e.phase === "drop" && over) finishDrag(fromTray.pieceId, fromTray.state.pose);
+          if (fromTray) gestureRef.current = { kind: "none" };
+        } else if (fromTray) {
+          fromTray.state = dragTo(fromTray.state, toWorld(p));
+        } else if (g.kind !== "drag") {
+          const outline = pieceOutline(getPiece(store.doc, e.pieceId));
           gestureRef.current = {
             kind: "drag",
-            pointerId: -1,
-            placementId: null,
-            pieceId: inc.pieceId,
+            source: { kind: "tray" },
+            pieceId: e.pieceId,
             state: dragTo(startDrag(outline, { x: 0, y: 0, rotation: 0 }, { x: 0, y: 0 }), toWorld(p)),
             start: p,
             moved: true,
             twist: null,
           };
-        } else if (over && g.kind === "drag" && g.placementId === null) {
-          g.state = dragTo(g.state, toWorld(p));
-        } else if (!over && g.kind === "drag" && g.placementId === null) {
-          gestureRef.current = { kind: "none" };
         }
-        redraw();
-      } else if (phase === "wheel" && g.kind === "drag" && g.placementId === null) {
-        g.state = rotateDrag(g.state, inc.wheel * WHEEL_ROTATE);
-        redraw();
-      } else if (phase === "drop") {
-        if (g.kind === "drag" && g.placementId === null && over) finishDrag(g);
-        gestureRef.current = { kind: "none" };
-        redraw();
-      } else if (phase === "click") {
-        // A click on the tray places the piece in the middle of the view.
-        const outline = pieceOutline(getPiece(store.doc, inc.pieceId));
-        const centre = toWorld({ x: r.width / 2, y: r.height / 2 });
-        const state = startDrag(outline, { x: centre.x, y: centre.y, rotation: 0 }, { x: 0, y: 0 });
-        finishDrag({
-          kind: "drag",
-          pointerId: -1,
-          placementId: null,
-          pieceId: inc.pieceId,
-          state,
-          start: centre,
-          moved: true,
-          twist: null,
-        });
-        redraw();
       }
+      redraw();
     });
   }, [redraw, toWorld, finishDrag]);
 
@@ -375,16 +349,6 @@ export function WorkboardCanvas() {
       />
     </div>
   );
-}
-
-const mid = (a: Vec, b: Vec): Vec => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
-
-/** The document as shown mid-drag: the piece in hand at its current pose, or (from the tray) added at the end. */
-function withPose(doc: MosaicDocument, g: Extract<Gesture, { kind: "drag" }>): MosaicDocument {
-  const pose: Pose = g.state.pose;
-  if (g.placementId === null)
-    return { ...doc, placements: [...doc.placements, { id: "__incoming", pieceId: g.pieceId, pose, locked: false }] };
-  return { ...doc, placements: doc.placements.map((p) => (p.id === g.placementId ? { ...p, pose } : p)) };
 }
 
 /** The cached layer of all pieces but `exclude`; rebuilt only when the document, the view or the excluded piece changes. */
@@ -403,10 +367,17 @@ function staticLayer(
   ctx.clearRect(0, 0, w, h);
   ctx.save();
   applyCamera(ctx, cam, w, h);
-  drawPlacements(ctx, doc, exclude ? doc.placements.filter((p) => p.id !== exclude) : doc.placements, cam);
+  drawPlacements(ctx, doc, exclude ? doc.placements.filter((p) => p.id !== exclude) : doc.placements, cam, viewBounds(cam, w, h));
   ctx.restore();
   ref.current = { canvas, cam: { ...cam }, w, h, doc, exclude };
   return canvas;
 }
 
 const sameCam = (a: Camera, b: Camera) => a.x === b.x && a.y === b.y && a.zoom === b.zoom;
+
+/** The board area the view shows, in mm, widened by `CULL_MARGIN_PX`. */
+function viewBounds(cam: Camera, w: number, h: number): Bounds {
+  const hw = (w / 2 + CULL_MARGIN_PX) / cam.zoom;
+  const hh = (h / 2 + CULL_MARGIN_PX) / cam.zoom;
+  return { minX: cam.x - hw, minY: cam.y - hh, maxX: cam.x + hw, maxY: cam.y + hh };
+}

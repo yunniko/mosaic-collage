@@ -41,10 +41,10 @@ export function updatePiece(doc: MosaicDocument, piece: Piece): MosaicDocument {
 }
 
 /** An editable copy of a piece, inserted after it. This is how a placed piece gets a variant (D002). */
-export function duplicatePiece(doc: MosaicDocument, id: string, name: string): { doc: MosaicDocument; id: string } {
+export function duplicatePiece(doc: MosaicDocument, id: string, name: string, copyId = newId()): { doc: MosaicDocument; id: string } {
   const src = getPiece(doc, id);
   const copy: Piece = structuredClone(src);
-  copy.id = newId();
+  copy.id = copyId;
   copy.name = name;
   const i = doc.pieces.indexOf(src);
   const pieces = [...doc.pieces.slice(0, i + 1), copy, ...doc.pieces.slice(i + 1)];
@@ -63,9 +63,9 @@ export function renamePiece(doc: MosaicDocument, id: string, name: string): Mosa
   return { ...doc, pieces: doc.pieces.map((p) => (p.id === id ? { ...p, name } : p)) };
 }
 
-export function placePiece(doc: MosaicDocument, pieceId: string, pose: Pose): { doc: MosaicDocument; id: string } {
+export function placePiece(doc: MosaicDocument, pieceId: string, pose: Pose, id = newId()): { doc: MosaicDocument; id: string } {
   getPiece(doc, pieceId);
-  const placement: Placement = { id: newId(), pieceId, pose: { ...pose }, locked: false };
+  const placement: Placement = { id, pieceId, pose: { ...pose }, locked: false };
   return { doc: { ...doc, placements: [...doc.placements, placement] }, id: placement.id };
 }
 

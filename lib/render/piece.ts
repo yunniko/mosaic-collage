@@ -1,3 +1,4 @@
+import { FALLBACK_COLOR } from "../document/defaults";
 import type { Piece } from "../document/types";
 import { type Polygon, polygonBounds } from "../geometry/polygon";
 import { type RgbaImage, createImage, fillImage } from "../raster/image";
@@ -34,7 +35,7 @@ export function renderPiece(piece: Piece, outline: Polygon, requestedScale: numb
   const mask = rasterizePolygon(px, width, height);
 
   const image = createImage(width, height);
-  fillImage(image, piece.texture.kind === "plain" ? piece.texture.color : "#888888");
+  fillImage(image, piece.texture.kind === "plain" ? piece.texture.color : FALLBACK_COLOR);
   const d = image.data;
   for (let i = 0; i < mask.data.length; i++) d[i * 4 + 3] = Math.round(d[i * 4 + 3] * mask.data[i]);
   return { image, originX, originY, scale };

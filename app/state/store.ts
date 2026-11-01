@@ -51,6 +51,7 @@ class Store {
   };
 
   set(patch: Partial<AppState>) {
+    if ((Object.keys(patch) as (keyof AppState)[]).every((k) => this.state[k] === patch[k])) return;
     this.state = { ...this.state, ...patch };
     for (const l of this.listeners) l();
   }
@@ -61,15 +62,8 @@ class Store {
 
   /** Applies a document change as one undo step. A refused change (it throws) is reported and leaves the document alone. */
   apply(change: (doc: MosaicDocument) => MosaicDocument, onError?: (e: unknown) => void): boolean {
-    try {
-      const next = change(this.doc);
-      this.set({ history: commit(this.state.history, next) });
-      return true;
-    } catch (e) {
-      if (onError) onError(e);
-      else throw e;
-      return false;
-    }
+    this.lastKey = "";
+    return this.run(change, commit, onError);
   }
 
   private lastKey = "";
@@ -77,16 +71,24 @@ class Store {
 
   /**
    * Like `apply`, but consecutive changes with the same `key` within a moment fold into one undo step, so dragging a
-   * slider is one step rather than hundreds.
+   * slider is one step rather than hundreds. Any other history change in between starts a new step.
    */
   applyCoalesced(key: string, change: (doc: MosaicDocument) => MosaicDocument, onError?: (e: unknown) => void): boolean {
     const now = performance.now();
     const fold = key === this.lastKey && now - this.lastTime < 1000 && this.state.history.past.length > 0;
-    this.lastKey = key;
+    const ok = this.run(change, fold ? replacePresent : commit, onError);
+    this.lastKey = ok ? key : "";
     this.lastTime = now;
-    if (!fold) return this.apply(change, onError);
+    return ok;
+  }
+
+  private run(
+    change: (doc: MosaicDocument) => MosaicDocument,
+    record: (h: History<MosaicDocument>, doc: MosaicDocument) => History<MosaicDocument>,
+    onError?: (e: unknown) => void
+  ): boolean {
     try {
-      this.set({ history: replacePresent(this.state.history, change(this.doc)) });
+      this.set({ history: record(this.state.history, change(this.doc)) });
       return true;
     } catch (e) {
       if (onError) onError(e);
@@ -96,15 +98,18 @@ class Store {
   }
 
   undo() {
+    this.lastKey = "";
     this.set({ history: undo(this.state.history), selectedPlacementIds: [] });
   }
 
   redo() {
+    this.lastKey = "";
     this.set({ history: redo(this.state.history), selectedPlacementIds: [] });
   }
 
   /** Starts over with a new document (a loaded file or "New"): history and selection are cleared. */
   replaceDocument(doc: MosaicDocument, assets: AssetStore) {
+    this.lastKey = "";
     this.set({
       history: createHistory(doc),
       assets,

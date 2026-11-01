@@ -37,25 +37,27 @@ export class Noise2D {
     const xf = x - xi;
     const yf = y - yi;
     if (period > 256 || periodY > 256) throw new RangeError(`Noise period ${Math.max(period, periodY)} exceeds the 256-cell lattice`);
-    const wrap = (v: number, period: number) => {
-      const per = Math.max(0, Math.round(period));
-      return (per > 0 ? ((v % per) + per) % per : v) & 255;
-    };
-    const x0 = wrap(xi, period);
-    const x1 = wrap(xi + 1, period);
-    const y0 = wrap(yi, periodY);
-    const y1 = wrap(yi + 1, periodY);
-    const h = (ix: number, iy: number) => this.perm[this.perm[ix] + iy];
-    const g = (hash: number, dx: number, dy: number) => this.gx[hash] * dx + this.gy[hash] * dy;
-    const n00 = g(h(x0, y0), xf, yf);
-    const n10 = g(h(x1, y0), xf - 1, yf);
-    const n01 = g(h(x0, y1), xf, yf - 1);
-    const n11 = g(h(x1, y1), xf - 1, yf - 1);
+    const px = Math.max(0, Math.round(period));
+    const py = Math.max(0, Math.round(periodY));
+    const x0 = wrap(xi, px);
+    const x1 = wrap(xi + 1, px);
+    const y0 = wrap(yi, py);
+    const y1 = wrap(yi + 1, py);
+    const n00 = this.grad(x0, y0, xf, yf);
+    const n10 = this.grad(x1, y0, xf - 1, yf);
+    const n01 = this.grad(x0, y1, xf, yf - 1);
+    const n11 = this.grad(x1, y1, xf - 1, yf - 1);
     const u = xf * xf * xf * (xf * (xf * 6 - 15) + 10);
     const v = yf * yf * yf * (yf * (yf * 6 - 15) + 10);
     const nx0 = n00 + u * (n10 - n00);
     const nx1 = n01 + u * (n11 - n01);
     return (nx0 + v * (nx1 - nx0)) * 1.4142;
+  }
+
+  /** The lattice gradient at (ix, iy) dotted with the offset (dx, dy). */
+  private grad(ix: number, iy: number, dx: number, dy: number): number {
+    const hash = this.perm[this.perm[ix] + iy];
+    return this.gx[hash] * dx + this.gy[hash] * dy;
   }
 
   /** Fractal sum of `octaves` layers, each at double the frequency and `gain` times the amplitude. */
@@ -72,6 +74,11 @@ export class Noise2D {
     }
     return sum / norm;
   }
+}
+
+/** `v` wrapped into [0, per) when per > 0, then onto the 256-cell lattice. */
+function wrap(v: number, per: number): number {
+  return (per > 0 ? ((v % per) + per) % per : v) & 255;
 }
 
 /** One-dimensional noise along a line (for torn edges): `fbm` on a row of the 2D field. */

@@ -29,7 +29,10 @@ export const defaultTornEdge = (seed = randomSeed()): TornEdge => ({
 
 export const DEFAULT_BOARD: BoardSettings = { allowOverlap: true, margin: 2, autoRotate: true, shadow: 0.5 };
 
-export const DEFAULT_BACKGROUND: Background = { kind: "color", color: "#f4efe4", padding: 10 };
+/** Shown in place of a texture that can't be drawn (its asset is missing). */
+export const FALLBACK_COLOR = "#888888";
+
+export const DEFAULT_BACKGROUND: Extract<Background, { kind: "color" }> = { kind: "color", color: "#f4efe4", padding: 10 };
 
 /** A warm palette the "new piece" button cycles through, so consecutive pieces are told apart at a glance. */
 const STARTER_COLORS = ["#c8553d", "#f28f3b", "#ffd5c2", "#588b8b", "#2d3047", "#93b7be", "#e0ca3c", "#7d4e57"];

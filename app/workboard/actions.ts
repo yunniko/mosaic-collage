@@ -11,9 +11,6 @@ export function selectionActions(t: T) {
   const onError = (e: unknown) => store.notify("error", errorText(t, e));
   const ids = () => store.getState().selectedPlacementIds;
   return {
-    setLocked(locked: boolean) {
-      if (ids().length) store.apply((d) => setLocked(d, ids(), locked), onError);
-    },
     toggleLock() {
       const sel = ids();
       if (!sel.length) return;
