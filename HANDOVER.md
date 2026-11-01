@@ -1,18 +1,26 @@
 # mosaic-collage — Handover
-Last verified: 2026-11-01 at 0ff5e1c
+Last verified: 2026-11-01 at 1a75538
 
 A browser app for mosaics and paper collages. Pieces are made on a cutboard and placed on a
 workboard. Goal G-001 is in `GOALS.md`. Charter: `E:\CLAUDE\COMPANY\`.
 
 ## Current state
 
-G-001 milestone M1 (foundation) is done. Code is public at `https://github.com/yunniko/mosaic-collage`.
-CI on GitHub runs format, lint, typecheck, unit, build and e2e.
+G-001 milestones M1 (foundation) and M2 (shapes) are done. Code is public at `https://github.com/yunniko/mosaic-collage`.
+CI on GitHub runs format, lint, typecheck, unit, then build and e2e (`npm run test:e2e` builds first, so it
+never tests a stale `out/`).
 
 Works, verified in this session:
 - **Cutboard.**
   - New, duplicate, rename and delete pieces.
-  - Predefined shapes with parameters, in a plain colour.
+  - Three shape sources, in a plain colour:
+    - predefined shapes with parameters;
+    - generated shapes (irregular polygon, shard, blob, wavy strip), with "New variation" for a new seed;
+    - hand cut: draw one stroke on the mat, with stabilisation 0–100 adjustable afterwards. Esc or Cancel
+      leaves cut mode. A stroke that crosses into two pieces, or is too small, is refused with a message.
+  - Every outline is checked as it is made: an uncuttable shape never reaches the document. A file whose
+    shape can't be cut loads with a rectangle in its place and a warning.
+  - The view re-frames when the shape changes kind; tuning parameters keeps the view.
   - Pan and zoom, with the mouse or a pinch.
   - A placed piece is read-only; "duplicate as new" gives an editable copy.
 - **Workboard.**
@@ -31,7 +39,6 @@ Works, verified in this session:
   - The artwork background follows the placed pieces.
 
 Not built yet, as planned in later milestones:
-- generated and hand-cut shapes;
 - textures and colour;
 - relief and torn edges;
 - no-overlap placement;
@@ -39,7 +46,7 @@ Not built yet, as planned in later milestones:
 
 The UI already shows the overlap and margin settings, but only overlap-allowed behaviour exists.
 
-Tests: unit 42/42 (Vitest); e2e 13/13 (Playwright: chromium 6, firefox 6, tablet touch 1).
+Tests: unit 60/60 (Vitest); e2e 21/21 (Playwright: chromium 10, firefox 10, tablet touch 1).
 
 ## How things fit together
 
@@ -48,7 +55,12 @@ Tests: unit 42/42 (Vitest); e2e 13/13 (Playwright: chromium 6, firefox 6, tablet
   history. Every op returns a new document. `app/state/store.ts` is the single store, holding the history
   plus view state; `apply`/`applyCoalesced` make undo steps.
 - **Pieces.** Pieces are templates and placements refer to them by ID (D002). A piece's outline comes from
-  `lib/shapes/outline.ts`, built from predefined shapes or the generator registry in `lib/shapes/generators/`. The registry is empty until M2.
+  `lib/shapes/outline.ts`, built from a predefined shape, a generator in `lib/shapes/generators/` (seeded,
+  so a seed always gives the same shape) or a hand stroke (`lib/shapes/hand.ts`, D007). Outlines are cached
+  per shape object and must pass `checkOutline` in `lib/shapes/repair.ts` (D008).
+  To add a generator: a module returning a simple outline for every seed and parameter, registered in
+  `lib/shapes/generators/index.ts`, with its labels in `messages/en.json`; `tests/unit/cutting.spec.ts`
+  sweeps it automatically.
 - **Rendering.**
   - Pieces render to RGBA through `lib/render/piece.ts` (D006).
   - `app/render/sprites.ts` caches each render per piece object and per power-of-two px/mm step.
@@ -58,6 +70,8 @@ Tests: unit 42/42 (Vitest); e2e 13/13 (Playwright: chromium 6, firefox 6, tablet
   - Pieces other than the one in hand are drawn into a cached static layer.
   - `lib/workboard/drag.ts` keeps the grab point under the pointer while the piece turns.
   - A tray drag reaches the board through `app/workboard/incoming.ts`, because the tray owns the pointer.
+- **Cut mode.** `cuttingPieceId` in the store, read through `useCutting()`; it ends when the selection
+  changes. `app/cutboard/CutboardCanvas.tsx` draws the stroke and applies it on release.
 - **Camera.** Camera maths (pan, zoom, pinch, fit) is in `lib/view/camera.ts`, shared by both boards.
 
 ## Rules in force
@@ -72,11 +86,9 @@ Tests: unit 42/42 (Vitest); e2e 13/13 (Playwright: chromium 6, firefox 6, tablet
 
 ## Next steps and open questions
 
-- M2 — Shapes:
-  - the generator algorithms (irregular polygon, shard, blob, wave strip);
-  - the hand cutter with stabilisation;
-  - outline validation and repair.
-- Then M3–M6 per `GOALS.md`. M6 includes the deploy to `mosaic.app.julienika.cz`.
+- M3 — No-overlap placement: margin offsets, collision for any outline (concave and hand-cut), stopping at
+  contact with auto-rotation, jumping into free space.
+- Then M4–M6 per `GOALS.md`. M6 includes the deploy to `mosaic.app.julienika.cz`.
 - No open questions for the Owner.
 
 ## Deploy log

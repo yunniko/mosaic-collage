@@ -57,7 +57,7 @@
   - Save and load the editable file.
   - CI: format, lint, unit and e2e.
   - Public GitHub repo `yunniko/mosaic-collage` with the code pushed.
-- [ ] M2 — **Shapes.**
+- [x] M2 — **Shapes.**
   - Generator registry with its first algorithms: irregular polygon, shard/Voronoi cell, organic blob,
     wave-edged strip.
   - Hand cutter with stabilisation.
@@ -86,6 +86,21 @@
     an nginx vhost and a TLS certificate through `julai-new-vhost`), checked live.
 
 **Progress log** (newest first):
+- 2026-11-01 — **M2 done** (1a75538). Built:
+  - four generators (irregular polygon, shard, blob, wavy strip) with reroll;
+  - the hand cutter with stabilisation (D007);
+  - outline validation and repair (D008), enforced in ops and on load;
+  - near-linear `isSimplePolygon` for large outlines.
+
+  Check-in:
+  - /simplify: shape-keyed outline cache, repair skips the union for simple outlines, one cut-mode predicate,
+    stroke repainted once per frame.
+  - /code-review: 6 of 8 findings fixed. Among them: a stroke still applied after Esc, and irregular polygons
+    could cross themselves at few sides. 2 rejected with reasons in the milestone note.
+  - Verified: unit 60/60; e2e 21/21; tsc, eslint, prettier clean; exercised in Chrome with no console errors.
+  - `npm run test:e2e` now builds first: it had been serving a stale `out/`.
+
+  Next: M3, no-overlap placement.
 - 2026-11-01 — **M1 done** (0ff5e1c). Built:
   - the cutboard, with predefined shapes in plain colour;
   - the workboard: tray drag or click to place; move, wheel and two-finger turn, select, lock, z-order, delete;
