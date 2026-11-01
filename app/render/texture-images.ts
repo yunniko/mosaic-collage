@@ -1,9 +1,9 @@
 "use client";
 
 import type { PDFDocumentProxy } from "pdfjs-dist";
-import type { AssetStore } from "@/lib/document/types";
+import type { AssetStore, MosaicDocument } from "@/lib/document/types";
 import type { RgbaImage } from "@/lib/raster/image";
-import { parseTextureImageKey } from "@/lib/textures/sample";
+import { parseTextureImageKey, textureImageKey } from "@/lib/textures/sample";
 import { store } from "../state/store";
 import { createCanvas2d } from "./canvas";
 
@@ -25,7 +25,8 @@ export function lookupTextureImage(key: string): RgbaImage | "failed" | undefine
   if (hit || decoding.has(key)) return hit;
   const { assetId, page } = parseTextureImageKey(key);
   const bytes = store.getState().assets.get(assetId);
-  if (!bytes) return undefined;
+  // Without bytes there is nothing to decode. Not cached, in case the asset is added later.
+  if (!bytes) return "failed";
   decoding.add(key);
   const meta = store.doc.assets.find((a) => a.id === assetId);
   const work = page !== null ? decodePdfPage(assetId, page) : decodeImage(bytes, meta?.mime ?? "");
@@ -45,21 +46,25 @@ export function lookupTextureImage(key: string): RgbaImage | "failed" | undefine
   return undefined;
 }
 
-/** Drops decoded pixels and open PDFs of assets no longer in the store (a new or loaded document replaced them). */
-function prune(assets: AssetStore) {
-  for (const key of decoded.keys()) if (!assets.has(parseTextureImageKey(key).assetId)) decoded.delete(key);
+/**
+ * Drops decoded pixels no piece uses any more (an earlier PDF page, a replaced picture: each can hold 16 MB), and
+ * closes PDFs whose asset left the store. Undoing back to such a texture decodes it again.
+ */
+function prune(doc: MosaicDocument, assets: AssetStore) {
+  const used = new Set(doc.pieces.map((p) => textureImageKey(p.texture)));
+  for (const key of decoded.keys()) if (!used.has(key)) decoded.delete(key);
   for (const [assetId, open] of pdfs) {
     if (assets.get(assetId) === open.bytes) continue;
     pdfs.delete(assetId);
-    void open.task.then((t) => t.destroy());
+    open.task.then((t) => t.destroy()).catch(() => {});
   }
 }
-let lastAssets = store.getState().assets;
+let last = { doc: store.doc, assets: store.getState().assets };
 store.subscribe(() => {
-  const { assets } = store.getState();
-  if (assets === lastAssets) return;
-  lastAssets = assets;
-  prune(assets);
+  const now = { doc: store.doc, assets: store.getState().assets };
+  if (now.doc === last.doc && now.assets === last.assets) return;
+  last = now;
+  prune(now.doc, now.assets);
 });
 
 const fit = (w: number, h: number) => Math.min(1, MAX_TEXTURE_PX / Math.max(w, h));
@@ -84,6 +89,8 @@ function loadPdfJs(): Promise<PdfJs> {
     m.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
     return m;
   });
+  // A chunk that failed to load (a dropped connection) is tried again next time, not remembered as failed.
+  pdfjs.catch(() => (pdfjs = null));
   return pdfjs;
 }
 

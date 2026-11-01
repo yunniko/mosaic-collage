@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { DEFAULT_TEXTURE_TRANSFORM, newId } from "@/lib/document/defaults";
-import { addAsset, updatePiece } from "@/lib/document/ops";
-import type { AssetMeta, Piece, TextureSource, TextureTransform } from "@/lib/document/types";
+import { addAsset, getPiece, updatePiece } from "@/lib/document/ops";
+import type { AssetMeta, TextureSource, TextureTransform } from "@/lib/document/types";
 import { randomSeed } from "@/lib/random";
 import { defaultParams, sanitizeParams } from "@/lib/shapes/params";
 import { TEXTURE_GENERATORS, findTextureGenerator } from "@/lib/textures/generators";
@@ -17,6 +17,26 @@ import type { SectionProps } from "../PieceEditor";
 
 /** The largest file taken as a texture. Bigger files are refused: they are kept whole in memory and in saved files. */
 export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+
+/** Image files the browser decodes into pixels, by extension, for systems that report no MIME type. SVG is not one. */
+const IMAGE_EXTENSIONS: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+  avif: "image/avif",
+  bmp: "image/bmp",
+};
+
+/** The kind and MIME type a chosen file is stored as, or null when it is not a usable texture. */
+function textureFileType(file: File): { kind: "image" | "pdf"; mime: string } | null {
+  const ext = file.name.toLowerCase().split(".").pop() ?? "";
+  if (file.type === "application/pdf" || ext === "pdf") return { kind: "pdf", mime: "application/pdf" };
+  if (file.type === "image/svg+xml" || ext === "svg") return null;
+  if (file.type.startsWith("image/")) return { kind: "image", mime: file.type };
+  return IMAGE_EXTENSIONS[ext] ? { kind: "image", mime: IMAGE_EXTENSIONS[ext] } : null;
+}
 
 /** In the picker an image and a PDF page are one choice, "a file": the file chosen decides which. */
 type Choice = "plain" | "generated" | "file";
@@ -39,19 +59,23 @@ export function TextureSection({ piece, disabled, onChange }: SectionProps) {
   };
 
   const upload = async (file: File) => {
-    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
-    if (!isPdf && !file.type.startsWith("image/")) return store.notify("error", t("errors.texture-type"));
+    const type = textureFileType(file);
+    if (!type) return store.notify("error", t("errors.texture-type"));
     if (file.size > MAX_UPLOAD_BYTES) return store.notify("error", t("errors.texture-too-big", { mb: MAX_UPLOAD_BYTES / 1048576 }));
     const bytes = new Uint8Array(await file.arrayBuffer());
-    const meta: AssetMeta = { id: newId(), name: file.name, mime: isPdf ? "application/pdf" : file.type, kind: isPdf ? "pdf" : "image" };
-    const texture: TextureSource = isPdf ? { kind: "pdf", assetId: meta.id, page: 1 } : { kind: "image", assetId: meta.id };
-    // A new picture starts unshifted and unscaled: the old transform was set for a different texture.
-    const next: Piece = { ...piece, texture, textureTransform: { ...DEFAULT_TEXTURE_TRANSFORM } };
+    const meta: AssetMeta = { id: newId(), name: file.name, mime: type.mime, kind: type.kind };
+    const texture: TextureSource = type.kind === "pdf" ? { kind: "pdf", assetId: meta.id, page: 1 } : { kind: "image", assetId: meta.id };
     store.addAssetBytes(meta.id, bytes);
-    store.apply(
-      (d) => updatePiece(addAsset(d, meta), next),
+    const ok = store.apply(
+      (d) => {
+        // The piece as it is now, not as it was when the file was chosen: it may have been edited while it was read.
+        const current = getPiece(d, piece.id);
+        // A new picture starts unshifted and unscaled: the old transform was set for a different texture.
+        return updatePiece(addAsset(d, meta), { ...current, texture, textureTransform: { ...DEFAULT_TEXTURE_TRANSFORM } });
+      },
       (e) => store.notify("error", errorText(t, e))
     );
+    if (!ok) store.removeAssetBytes(meta.id);
   };
 
   const choice: Choice = tex.kind === "image" || tex.kind === "pdf" ? "file" : tex.kind;

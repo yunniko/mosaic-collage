@@ -73,6 +73,10 @@ describe("HSL", () => {
     close(adjustHsl([0.2, 0.5, 0.8], 0, 0, -1), [0, 0, 0]);
   });
 
+  it("leaves greys grey when saturation is raised, as an image editor does", () => {
+    close(adjustHsl([0.5, 0.5, 0.5], 40, 0.8, 0), [0.5, 0.5, 0.5]);
+  });
+
   it("applies layers in order, a tint mixed by its opacity", () => {
     const layers = prepareLayers([
       { kind: "tint", color: "#ff0000", mode: "normal", opacity: 0.5 },
@@ -217,6 +221,24 @@ describe("renderPiece with textures", () => {
     const piece = square({ texture: { kind: "image", assetId: "x" } });
     expect(renderPiece(piece, pieceOutline(piece), 1, NO_IMAGES).pending).toBe(true);
     expect(renderPiece(piece, pieceOutline(piece), 1, () => createImage(2, 2)).pending).toBe(false);
+  });
+
+  it("renders a 60 mm image piece with a tint and a hue shift at 8 px/mm quickly enough to drag sliders", () => {
+    const img = createImage(256, 256);
+    for (let i = 0; i < img.data.length; i += 4) img.data.set([(i / 4) % 256, (i / 1024) % 256, 128, 255], i);
+    const piece = square({
+      shape: { kind: "predefined", shapeId: "rectangle", params: { width: 60, height: 60, radius: 0 } },
+      texture: { kind: "image", assetId: "photo" },
+      colors: [
+        { kind: "tint", color: "#c08040", mode: "overlay", opacity: 0.6 },
+        { kind: "hsl", hue: 20, saturation: 0.2, lightness: 0 },
+      ],
+    });
+    const t0 = performance.now();
+    renderPiece(piece, pieceOutline(piece), 8, () => img);
+    const ms = performance.now() - t0;
+    console.log(`image + 2 layers 480x480 px render: ${ms.toFixed(0)} ms`);
+    expect(ms).toBeLessThan(2000);
   });
 
   it("renders a 60 mm textured piece at 8 px/mm quickly enough to drag sliders", () => {

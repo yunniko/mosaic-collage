@@ -143,6 +143,11 @@ class Store {
     this.set({ assets });
   }
 
+  removeAssetBytes(id: string) {
+    const assets = new Map(this.state.assets);
+    if (assets.delete(id)) this.set({ assets });
+  }
+
   notify(kind: Notice["kind"], text: Notice["text"]) {
     const notice = { id: ++this.noticeId, kind, text };
     this.set({ notices: [...this.state.notices, notice].slice(-4) });

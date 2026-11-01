@@ -113,7 +113,8 @@ export function hslToRgb([h, s, l]: Rgb): Rgb {
 export function adjustHsl(c: Rgb, hue: number, saturation: number, lightness: number): Rgb {
   const [h, s, l] = rgbToHsl(c);
   const toward = (v: number, k: number) => (k >= 0 ? v + (1 - v) * k : v * (1 + k));
-  return hslToRgb([h + hue, toward(s, saturation), toward(l, lightness)]);
+  // A grey has no hue to strengthen: raising its saturation would invent one (red, hue 0), so it stays grey.
+  return hslToRgb([h + hue, s === 0 ? 0 : toward(s, saturation), toward(l, lightness)]);
 }
 
 /** A colour layer prepared once per render: the tint's colour parsed, so the per-pixel step does arithmetic only. */
