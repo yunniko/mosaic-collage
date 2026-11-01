@@ -8,3 +8,4 @@
 - D006 — Pieces render through one pure RGBA pipeline in lib/ — active
 - D007 — A hand cut stores its raw stroke; the outline is derived — active
 - D008 — A self-crossing cut keeps its largest part, or is refused — active
+- D009 — With overlap off, a dragged piece stops at contact, swings, or jumps to free space — active

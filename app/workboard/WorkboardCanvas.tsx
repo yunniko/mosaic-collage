@@ -11,6 +11,7 @@ import { angleBetween, angleDelta, distance, type Vec } from "@/lib/geometry/vec
 import { pieceOutline } from "@/lib/shapes/outline";
 import { type Camera, fitBounds, panBy, pinch, screenToWorld, wheelZoom } from "@/lib/view/camera";
 import { type DragState, dragTo, rotateDrag, startDrag } from "@/lib/workboard/drag";
+import { type DragRules, isFree, nearestFree, obstaclesFor } from "@/lib/workboard/placement";
 import { artworkBounds, hitTest, placedShape } from "@/lib/workboard/scene";
 import { CLICK_SLOP, applyCamera, canvasPoint, prepareCanvas, useElementSize } from "../components/canvas-hooks";
 import { drawTable } from "../render/surfaces";
@@ -111,7 +112,9 @@ export function WorkboardCanvas() {
       const piece = doc.pieces.find((p) => p.id === g.pieceId);
       if (piece) {
         drawPiece(ctx, piece, g.state.pose, cam, Math.max(doc.board.shadow, 0.6), true);
-        drawOutlineMark(ctx, transformPolygon(g.state.outline, g.state.pose), cam, "selected");
+        // With overlap off, a piece still in a conflict (it came in over others) is outlined in red until it is clear.
+        const clear = isFree(g.state.rules.obstacles, g.state.outline, g.state.pose);
+        drawOutlineMark(ctx, transformPolygon(g.state.outline, g.state.pose), cam, clear ? "selected" : "conflict");
       }
     }
     ctx.restore();
@@ -135,10 +138,15 @@ export function WorkboardCanvas() {
 
   const toWorld = useCallback((p: Vec) => screenToWorld(camRef.current, p, sizeRef.current.width, sizeRef.current.height), []);
 
-  /** Records a drop as one undo step: a placement gets its new pose; a piece without one is placed and selected. */
+  /**
+   * Records a drop as one undo step: a placement gets its new pose; a piece without one is placed and selected. With
+   * overlap off, a drop that would overlap or crowd another piece moves to the nearest free spot.
+   */
   const finishDrag = useCallback(
-    (pieceId: string, pose: Pose, placementId?: string) => {
+    (pieceId: string, dropped: Pose, placementId?: string) => {
       const onError = (e: unknown) => store.notify("error", errorText(t, e));
+      const doc = store.doc;
+      const pose = nearestFree(obstaclesFor(doc, placementId), pieceOutline(getPiece(doc, pieceId)), dropped);
       if (placementId) {
         store.apply((d) => movePlacement(d, placementId, pose), onError);
         return;
@@ -164,7 +172,7 @@ export function WorkboardCanvas() {
         kind: "drag",
         source: { kind: "board", placementId: pl.id, pointerId },
         pieceId: pl.pieceId,
-        state: startDrag(outline, pl.pose, grab),
+        state: startDrag(outline, pl.pose, grab, dragRules(doc, pl.id)),
         start: screen,
         moved: false,
         twist: null,
@@ -328,7 +336,8 @@ export function WorkboardCanvas() {
             kind: "drag",
             source: { kind: "tray" },
             pieceId: e.pieceId,
-            state: dragTo(startDrag(outline, { x: 0, y: 0, rotation: 0 }, { x: 0, y: 0 }), toWorld(p)),
+            // Held by its centre, starting under the pointer: it follows freely until it is clear of other pieces.
+            state: startDrag(outline, { ...toWorld(p), rotation: 0 }, { x: 0, y: 0 }, dragRules(store.doc)),
             start: p,
             moved: true,
             twist: null,
@@ -372,6 +381,11 @@ function staticLayer(
   ref.current = { canvas, cam: { ...cam }, w, h, doc, exclude };
   return canvas;
 }
+
+const dragRules = (doc: MosaicDocument, excludeId?: string): DragRules => ({
+  obstacles: obstaclesFor(doc, excludeId),
+  autoRotate: doc.board.autoRotate,
+});
 
 const sameCam = (a: Camera, b: Camera) => a.x === b.x && a.y === b.y && a.zoom === b.zoom;
 

@@ -1,6 +1,8 @@
 "use client";
 
-import { getPlacement, movePlacement, removePlacements, reorderPlacements, setLocked, type ZMove } from "@/lib/document/ops";
+import { getPiece, getPlacement, movePlacement, removePlacements, reorderPlacements, setLocked, type ZMove } from "@/lib/document/ops";
+import { pieceOutline } from "@/lib/shapes/outline";
+import { constrainTurn, obstaclesFor } from "@/lib/workboard/placement";
 import { errorText } from "../state/errors";
 import { store } from "../state/store";
 
@@ -24,15 +26,16 @@ export function selectionActions(t: T) {
     reorder(move: ZMove) {
       if (ids().length) store.apply((d) => reorderPlacements(d, ids(), move), onError);
     },
-    /** Turns each selected piece about its own centre. */
+    /** Turns each selected piece about its own centre; with overlap off, each stops where it meets a neighbour. */
     rotate(delta: number) {
       const sel = ids();
       if (!sel.length) return;
       store.apply(
         (d) =>
           sel.reduce((acc, id) => {
-            const pose = getPlacement(acc, id).pose;
-            return movePlacement(acc, id, { ...pose, rotation: pose.rotation + delta });
+            const pl = getPlacement(acc, id);
+            const outline = pieceOutline(getPiece(acc, pl.pieceId));
+            return movePlacement(acc, id, constrainTurn(obstaclesFor(acc, id), outline, pl.pose, pl.pose, delta));
           }, d),
         onError
       );

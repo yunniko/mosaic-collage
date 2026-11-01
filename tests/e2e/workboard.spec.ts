@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { centreOf, mouseDrag, openStudio, savedDocument, ui } from "./helpers/studio";
+import { boardToPage, centreOf, keepApart, mouseDrag, openStudio, savedDocument, ui } from "./helpers/studio";
 
 test.beforeEach(async ({ page }) => {
   await openStudio(page);
@@ -84,4 +84,62 @@ test("Delete removes the selected piece", async ({ page }) => {
   await expect(u.selection).toContainText("1 piece selected");
   await page.keyboard.press("Delete");
   await expect(u.trayItems.first()).toContainText("not placed");
+});
+
+const xy = (p: { x: number; y: number }): [number, number] => [p.x, p.y];
+
+test.describe("with overlap off", () => {
+  test.beforeEach(async ({ page }) => {
+    const u = ui(page);
+    await u.allowOverlap.uncheck();
+    await u.autoRotate.uncheck();
+    // Two clicks place two pieces: the second finds the free spot nearest the first.
+    await u.trayItems.first().click();
+    await u.trayItems.first().click();
+  });
+
+  test("a second piece placed on the first moves to free space", async ({ page }) => {
+    const [a, b] = (await savedDocument(page)).doc.placements;
+    expect(keepApart(a, b, 2)).toBe(true);
+    expect(Math.hypot(b.pose.x - a.pose.x, b.pose.y - a.pose.y)).toBeLessThan(80);
+  });
+
+  test("a dragged piece stops at its neighbour, then jumps past it", async ({ page }) => {
+    const [a, b] = (await savedDocument(page)).doc.placements;
+    // Push the second piece straight at the first: it stops at the margin.
+    await mouseDrag(page, await boardToPage(page, b.pose), await boardToPage(page, a.pose), 20);
+    const stopped = (await savedDocument(page)).doc.placements[1];
+    expect(keepApart(a, stopped, 2)).toBe(true);
+    expect(keepApart(a, stopped, 3)).toBe(false);
+    expect(stopped.pose.rotation).toBe(0);
+
+    // Pull on through to the far side: once the spot under the pointer is free, the piece is there.
+    const far = { x: a.pose.x - (b.pose.x - a.pose.x) * 1.5, y: a.pose.y - (b.pose.y - a.pose.y) * 1.5 };
+    await mouseDrag(page, await boardToPage(page, stopped.pose), await boardToPage(page, far), 30);
+    const jumped = (await savedDocument(page)).doc.placements[1];
+    expect(keepApart(a, jumped, 2)).toBe(true);
+    expect(Math.hypot(jumped.pose.x - far.x, jumped.pose.y - far.y)).toBeLessThan(1);
+  });
+
+  test("with auto-rotate on, a piece stopped on its corner swings about it toward the pointer", async ({ page }) => {
+    const u = ui(page);
+    await u.autoRotate.check();
+    const [a, b] = (await savedDocument(page)).doc.placements;
+    // Carry the second piece clear to the right of the first, turning it 45° on the way: a diamond.
+    const side = { x: a.pose.x + 70, y: a.pose.y };
+    await page.mouse.move(...xy(await boardToPage(page, b.pose)));
+    await page.mouse.down();
+    await page.mouse.move(...xy(await boardToPage(page, side)), { steps: 20 });
+    for (let i = 0; i < 3; i++) await page.mouse.wheel(0, 100);
+    await page.mouse.up();
+    const diamond = (await savedDocument(page)).doc.placements[1];
+    expect(diamond.pose.rotation).toBeCloseTo(Math.PI / 4, 5);
+
+    // Pull it up and to the left, past the first piece: its left corner meets the first piece's side and it swings.
+    const to = { x: a.pose.x + 10, y: a.pose.y - 40 };
+    await mouseDrag(page, await boardToPage(page, diamond.pose), await boardToPage(page, to), 30);
+    const swung = (await savedDocument(page)).doc.placements[1];
+    expect(Math.abs(swung.pose.rotation - Math.PI / 4)).toBeGreaterThan(0.05);
+    expect(keepApart(a, swung, 2)).toBe(true);
+  });
 });

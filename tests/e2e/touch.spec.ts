@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { centreOf, openStudio, savedDocument, ui } from "./helpers/studio";
+import { boardToPage, centreOf, keepApart, openStudio, savedDocument, ui } from "./helpers/studio";
 
 /** Touch: one finger holds a piece, a second finger swung around it turns it. Driven through CDP touch events. */
 test("a second finger turns a held piece", async ({ page }) => {
@@ -28,4 +28,30 @@ test("a second finger turns a held piece", async ({ page }) => {
   expect(after.rotation - before.rotation).toBeCloseTo(Math.PI / 2, 1);
   // Turning about the held finger at the piece's centre leaves it where it was.
   expect(Math.hypot(after.x - before.x, after.y - before.y)).toBeLessThan(1);
+});
+
+test("with overlap off, a finger-dragged piece stops at its neighbour", async ({ page }) => {
+  await openStudio(page);
+  const u = ui(page);
+  await u.newPiece.click();
+  await u.tab("workboard").click();
+  await u.allowOverlap.uncheck();
+  await u.autoRotate.uncheck();
+  await u.trayItems.first().click();
+  await u.trayItems.first().click();
+  const [a, b] = (await savedDocument(page)).doc.placements;
+  const cdp = await page.context().newCDPSession(page);
+  const from = await boardToPage(page, b.pose);
+  const to = await boardToPage(page, a.pose);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ ...from, id: 1 }] });
+  for (let i = 1; i <= 15; i++) {
+    const t = i / 15;
+    const p = { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t, id: 1 };
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [p] });
+  }
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+
+  const stopped = (await savedDocument(page)).doc.placements[1];
+  expect(keepApart(a, stopped, 2)).toBe(true);
+  expect(keepApart(a, stopped, 3)).toBe(false);
 });
