@@ -1,13 +1,13 @@
 # mosaic-collage — Handover
-Last verified: 2026-11-01 at 5b67718
+Last verified: 2026-11-01 at 3e14b06
 
 A browser app for mosaics and paper collages. Pieces are made on a cutboard and placed on a
 workboard. Goal G-001 is in `GOALS.md`. Charter: `E:\CLAUDE\COMPANY\`.
 
 ## Current state
 
-G-001 milestones M1 (foundation), M2 (shapes), M3 (no-overlap placement) and M4 (textures and colour) are done;
-M4's bundled image textures wait on the Owner (see Next steps). Code is public at `https://github.com/yunniko/mosaic-collage`.
+G-001 milestones M1 (foundation), M2 (shapes), M3 (no-overlap placement), M4 (textures and colour) and M5
+(relief and torn edges) are done; M4's bundled image textures wait on the Owner (see Next steps). Code is public at `https://github.com/yunniko/mosaic-collage`.
 CI on GitHub runs format, lint, typecheck, unit, then build and e2e (`npm run test:e2e` builds first, so it
 never tests a stale `out/`).
 
@@ -46,6 +46,11 @@ Works, verified in this session:
     inside the `.mosaic` file; a file that can't be read gives a message and the fallback colour;
   - texture shift, scale and angle, about the piece's centre;
   - colour layers in order: tints in 16 W3C blend modes with opacity, and hue/saturation/lightness shifts.
+- **Relief and torn edges** (cutboard, Relief and Torn edge sections; D011):
+  - relief styles bevel, emboss and pillow with size, depth and softness, plus a texture bump; one light
+    with angle and altitude, fixed on the board, so turned pieces stay lit from the same side (D013);
+  - torn edge: five paper kinds, roughness, coverage, a lighter core band from the paper or a set colour,
+    fibres and fuzz outside the line, and "New tear" for another seed.
 - **Shared.**
   - Undo and redo. A slider drag counts as one step.
   - Save and open the `.mosaic` file (a zip of `mosaic.json` and `assets/`). Loading validates the file
@@ -54,13 +59,13 @@ Works, verified in this session:
 
 Not built yet, as planned in later milestones:
 - bundled image textures (waiting on the Owner);
-- relief and torn edges;
 - background choice and export.
 
-Known limit: a piece renders on the main thread at about 1 µs per pixel (`tests/unit/textures.spec.ts`
-timings), so zooming a large piece far in can stall for seconds. Carried into M5.
+Rendering a large sprite no longer stalls a zoom: it is shown coarser at once and refined in a Web Worker
+(D012); checked in the browser at maximum zoom with no console errors.
 
-Tests: unit 92/92 (Vitest); e2e 38/38 (Playwright: chromium 18, firefox 18, tablet touch 2).
+Tests: unit 106/106 (Vitest); e2e 42/42 (Playwright: chromium 20, firefox 20, tablet touch 2). Known: the full parallel e2e run occasionally hits a load timeout (a click or a download in
+firefox or chromium) that passes on a rerun; not yet traced.
 
 ## How things fit together
 
@@ -77,7 +82,10 @@ Tests: unit 92/92 (Vitest); e2e 38/38 (Playwright: chromium 18, firefox 18, tabl
   sweeps it automatically.
 - **Rendering.**
   - Pieces render to RGBA through `lib/render/piece.ts` (D006).
-  - `app/render/sprites.ts` caches each render per piece object and per power-of-two px/mm step.
+  - `app/render/sprites.ts` caches each render per piece object, per power-of-two px/mm step and, for a lit
+    piece, per 5° turn (D013); renders over its main-thread budget go to `app/render/sprite.worker.ts` (D012).
+  - Torn edges (`lib/edges/`) offset the cut outline; `lib/render/edge.ts` paints the band and fibres and
+    `lib/render/relief.ts` lights the height field, both inside `renderPiece`.
   - The table and mat surfaces are generated in `app/render/surfaces.ts`.
 - **Textures** (D010). `lib/textures/sample.ts` turns a texture into a flat colour, a generated field through a
   colour ramp, or decoded pixels; `lib/raster/blend.ts` holds the blend and HSL maths. Generators are a
@@ -109,9 +117,9 @@ Tests: unit 92/92 (Vitest); e2e 38/38 (Playwright: chromium 18, firefox 18, tabl
 
 ## Next steps and open questions
 
-- M5 — Relief and torn edges, per `GOALS.md`; also take sprite rendering off the main thread or cap its
-  resolution (the known limit above).
-- Then M6, which includes the deploy to `mosaic.app.julienika.cz`.
+- M6 — background (colour, texture, picture) and JPG/PNG export, then the deploy to `mosaic.app.julienika.cz`.
+  Export bounds must include the fibre reach and pass each piece's rotation to the renderer (D013).
+- Trace the occasional e2e load timeouts noted above.
 - BLOCKED: may four CC0 texture zips be downloaded from ambientcg.com for the bundled set? Details in the
   `GOALS.md` progress log. Until then the predefined set is the generated textures.
 

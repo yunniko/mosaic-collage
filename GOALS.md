@@ -73,7 +73,7 @@
   - Image and PDF-page textures, predefined and uploaded (pdf.js).
   - Texture offset, scale and rotation; blend modes; HSL adjustment.
   - Bundled textures licence-checked and attributed.
-- [ ] M5 — **Relief and torn edges.**
+- [x] M5 — **Relief and torn edges.**
   - Bevel/emboss from the shape's distance field under a movable light.
   - Torn-paper edge: displaced outline and exposed fibre band.
   - Rendered pieces are cached, since pieces never change once placed.
@@ -86,6 +86,17 @@
     an nginx vhost and a TLS certificate through `julai-new-vhost`), checked live.
 
 **Progress log** (newest first):
+- 2026-11-01 — **M5 done** (3e14b06). Built:
+  - bevel, emboss and pillow relief plus a texture bump, under one light fixed on the board (D011, D013);
+  - torn edges in five paper kinds with a core band, fibres and fuzz; the domain-expert reference is
+    `docs/reviews/2026-11-01-torn-paper-relief-reference.md`;
+  - large sprites refined in a Web Worker instead of stalling the zoom (D012).
+  - Review: /simplify and /code-review high applied (light turning with the piece, worker error paths, stale
+    job version, bump read after the band, thumbnail fit). Skipped, noted: the worker recomputes the tear per
+    job, and a stale in-flight job delays a newer one by one render.
+  - Verified: unit 106/106, e2e 42/42 on the last full run (earlier runs had one or two load timeouts that
+    passed alone), typecheck, lint and format clean; browser: bevel lit from the same side at 0° and 45°.
+  - Next: M6, background, export and the deploy.
 - 2026-11-01 — **M4 done** (5b67718), except the bundled image set (BLOCKED below, still open). Built:
   - seven generated textures, image and PDF-page textures (pdf.js on demand), texture shift/scale/angle;
   - colour layers: W3C blend-mode tints and HSL shifts (D010).
