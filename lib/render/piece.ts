@@ -60,6 +60,9 @@ export function pixelColor(tex: TextureSampling, layers: readonly PreparedLayer[
  * a pure function of the piece (and the decoded images it names), so the same pixels come out in a unit test, on the
  * boards and in an export.
  */
+/** True when the piece's pixels depend on its turn on the board: its relief is lit (D013). */
+export const isLit = (piece: Piece): boolean => piece.relief.style !== "none" || piece.relief.textureBump > 0;
+
 export function renderPiece(piece: Piece, requestedScale: number, images: ImageLookup, turn = 0): PieceSprite {
   const tear = pieceTear(piece);
   const outline = pieceOutline(piece);

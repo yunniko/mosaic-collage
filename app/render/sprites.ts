@@ -2,7 +2,7 @@
 
 import type { Piece } from "@/lib/document/types";
 import { polygonBounds } from "@/lib/geometry/polygon";
-import { type PieceSprite, renderPiece } from "@/lib/render/piece";
+import { type PieceSprite, isLit, renderPiece } from "@/lib/render/piece";
 import { pieceOutline, pieceTear } from "@/lib/shapes/outline";
 import { textureImageKey } from "@/lib/textures/sample";
 import { type AppState, store, useAppState } from "../state/store";
@@ -47,8 +47,7 @@ export function scaleStep(pxPerMm: number): number {
 
 /** The piece's turn index for a rotation in radians: always 0 for an unlit piece, whose pixels do not depend on it. */
 function turnIndex(piece: Piece, rotation: number): number {
-  const lit = piece.relief.style !== "none" || piece.relief.textureBump > 0;
-  if (!lit) return 0;
+  if (!isLit(piece)) return 0;
   const i = Math.round((rotation / (2 * Math.PI)) * TURNS) % TURNS;
   return i < 0 ? i + TURNS : i;
 }

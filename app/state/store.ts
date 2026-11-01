@@ -36,6 +36,8 @@ export interface AppState {
   textureVersion: number;
   /** Bumped whenever a sprite rendered in the background arrives, so the boards redraw with it (D012). */
   spriteVersion: number;
+  /** Bumped when the board's background is re-rendered for a change; it only asks the boards to redraw. */
+  backgroundVersion: number;
 }
 
 type Listener = () => void;
@@ -53,6 +55,7 @@ class Store {
     fitRequest: 0,
     textureVersion: 0,
     spriteVersion: 0,
+    backgroundVersion: 0,
   };
   private listeners = new Set<Listener>();
   private noticeId = 0;

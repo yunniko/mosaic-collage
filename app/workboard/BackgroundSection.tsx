@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl";
 import { DEFAULT_TEXTURE_TRANSFORM } from "@/lib/document/defaults";
 import { setBackground } from "@/lib/document/ops";
-import type { Background } from "@/lib/document/types";
+import type { Background, MosaicDocument } from "@/lib/document/types";
 import { NumberField, Section } from "../components/controls";
 import { TextureEditor } from "../components/TextureEditor";
 import { store, useDoc } from "../state/store";
@@ -13,7 +13,7 @@ export function BackgroundSection() {
   const t = useTranslations();
   const bg = useDoc().background;
   const change = (patch: Partial<Background>, key: string | null) => {
-    const apply = (d: Parameters<typeof setBackground>[0]) => setBackground(d, { ...d.background, ...patch });
+    const apply = (d: MosaicDocument) => setBackground(d, { ...d.background, ...patch });
     if (key) store.applyCoalesced(`background:${key}`, apply);
     else store.apply(apply);
   };
@@ -22,7 +22,6 @@ export function BackgroundSection() {
       <TextureEditor
         texture={bg.texture}
         transform={bg.transform}
-        disabled={false}
         onTexture={(texture, key) => change({ texture }, key && `texture:${key}`)}
         onTransform={(transform, key) => change({ transform }, `transform:${key}`)}
         applyFile={(d, texture) => setBackground(d, { ...d.background, texture, transform: { ...DEFAULT_TEXTURE_TRANSFORM } })}

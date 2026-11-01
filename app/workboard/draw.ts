@@ -3,7 +3,7 @@
 import type { MosaicDocument, Piece, Placement } from "@/lib/document/types";
 import { pieceShadow } from "@/lib/export/plan";
 import type { Pose } from "@/lib/geometry/pose";
-import { type Bounds, type Polygon, boundsOverlap } from "@/lib/geometry/polygon";
+import { type Bounds, type Polygon, boundsHeight, boundsOverlap, boundsWidth } from "@/lib/geometry/polygon";
 import type { Camera } from "@/lib/view/camera";
 import { placedShape } from "@/lib/workboard/scene";
 import { dpr } from "../components/canvas-hooks";
@@ -17,15 +17,14 @@ export function drawArtworkBackground(ctx: CanvasRenderingContext2D, doc: Mosaic
   ctx.shadowColor = "rgba(0,0,0,0.3)";
   ctx.shadowBlur = 14;
   ctx.shadowOffsetY = 4;
-  const w = b.maxX - b.minX;
-  const h = b.maxY - b.minY;
+  const w = boundsWidth(b);
+  const h = boundsHeight(b);
   const tex = doc.background.texture;
-  // The shadow comes from an opaque rectangle; the texture is then drawn over it without one.
-  ctx.fillStyle = tex.kind === "plain" ? tex.color : "#888888";
-  ctx.fillRect(b.minX, b.minY, w, h);
+  if (tex.kind === "plain") {
+    ctx.fillStyle = tex.color;
+    ctx.fillRect(b.minX, b.minY, w, h);
+  } else ctx.drawImage(boardBackground(doc.background, b, pxPerMm), b.minX, b.minY, w, h);
   ctx.restore();
-  const pixels = boardBackground(doc.background, b, pxPerMm);
-  if (pixels) ctx.drawImage(pixels, b.minX, b.minY, w, h);
 }
 
 /** One piece at a pose, with the board's drop shadow. The shadow is in screen space, so it falls the same way at any rotation. */

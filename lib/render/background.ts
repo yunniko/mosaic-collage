@@ -1,14 +1,12 @@
 import type { Background } from "../document/types";
-import type { Bounds } from "../geometry/polygon";
+import { type Bounds, boundsHeight, boundsWidth } from "../geometry/polygon";
 import { type RgbaImage, createImage } from "../raster/image";
 import { type ImageLookup, textureSampling } from "../textures/sample";
 import { pixelColor } from "./piece";
 
-/** A rendered background: its pixels cover `bounds` (mm) at `scale` px/mm. */
-export interface BackgroundImage {
+/** A rendered background. */
+interface BackgroundImage {
   image: RgbaImage;
-  bounds: Bounds;
-  scale: number;
   /** True when an image texture was not decoded yet and a stand-in colour was drawn. */
   pending: boolean;
 }
@@ -16,8 +14,8 @@ export interface BackgroundImage {
 /** The pixel size of `bounds` at `scale`: at least one pixel each way. */
 export function backgroundSize(bounds: Bounds, scale: number): { width: number; height: number } {
   return {
-    width: Math.max(1, Math.ceil((bounds.maxX - bounds.minX) * scale)),
-    height: Math.max(1, Math.ceil((bounds.maxY - bounds.minY) * scale)),
+    width: Math.max(1, Math.ceil(boundsWidth(bounds) * scale)),
+    height: Math.max(1, Math.ceil(boundsHeight(bounds) * scale)),
   };
 }
 
@@ -42,5 +40,5 @@ export function renderBackground(bg: Background, bounds: Bounds, scale: number, 
       d[k + 3] = 255;
     }
   }
-  return { image, bounds, scale, pending: tex.kind === "flat" && tex.pending };
+  return { image, pending: tex.kind === "flat" && tex.pending };
 }

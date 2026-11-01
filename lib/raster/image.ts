@@ -20,6 +20,9 @@ export const createImage = (width: number, height: number): RgbaImage => ({
   height,
   data: new Uint8ClampedArray(width * height * 4),
 });
+/** The image as browser `ImageData`, sharing its pixels; one home for the typed-array cast. */
+export const toImageData = (img: RgbaImage): ImageData => new ImageData(img.data as Uint8ClampedArray<ArrayBuffer>, img.width, img.height);
+
 export const createMask = (width: number, height: number): Mask => ({ width, height, data: new Float32Array(width * height) });
 
 /** Parses "#rrggbb" to 0..255 channels. */

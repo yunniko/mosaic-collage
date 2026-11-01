@@ -17,7 +17,7 @@ async function artworkImages(doc: MosaicDocument): Promise<Record<string, RgbaIm
   return images;
 }
 
-/** Composes the export in a worker, or on the page when a worker cannot start. Needs `OffscreenCanvas` either way. */
+/** Composes the export in a worker, so the page stays responsive (D015). Needs `OffscreenCanvas` and module workers. */
 export async function runExport(
   doc: MosaicDocument,
   plan: ExportPlan,
@@ -26,13 +26,7 @@ export async function runExport(
 ): Promise<Blob> {
   if (typeof OffscreenCanvas === "undefined") throw new Error("This browser cannot compose images off screen; please update it.");
   const images = await artworkImages(doc);
-  let worker: Worker;
-  try {
-    worker = new Worker(new URL("./export.worker.ts", import.meta.url), { type: "module" });
-  } catch {
-    const { composeArtwork } = await import("./compose");
-    return composeArtwork(doc, plan, opts, (k) => images[k], onProgress);
-  }
+  const worker = new Worker(new URL("./export.worker.ts", import.meta.url), { type: "module" });
   return new Promise<Blob>((resolve, reject) => {
     worker.onmessage = (e: MessageEvent<ExportReply>) => {
       const r = e.data;

@@ -22,9 +22,9 @@ export const EXPORT_DPI = [72, 150, 300, 600] as const;
  */
 export const MAX_EXPORT_PIXELS = 64_000_000;
 /** The longest side any of the browsers draws. */
-export const MAX_EXPORT_SIDE = 16_384;
+const MAX_EXPORT_SIDE = 16_384;
 
-export const MM_PER_INCH = 25.4;
+const MM_PER_INCH = 25.4;
 
 export interface ExportPlan {
   bounds: Bounds;

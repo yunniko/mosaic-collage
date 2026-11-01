@@ -36,7 +36,7 @@ export const FALLBACK_COLOR = "#888888";
 
 export const DEFAULT_BACKGROUND: Background = {
   texture: { kind: "plain", color: "#f4efe4" },
-  transform: { offsetX: 0, offsetY: 0, scale: 1, rotation: 0 },
+  transform: DEFAULT_TEXTURE_TRANSFORM,
   padding: 10,
 };
 

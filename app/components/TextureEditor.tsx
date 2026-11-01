@@ -15,7 +15,7 @@ import { store, useAppState, useDoc } from "../state/store";
 import { ColorField, NumberField, ParamField, SelectField } from "./controls";
 
 /** The largest file taken as a texture. Bigger files are refused: they are kept whole in memory and in saved files. */
-export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 
 /** Image files the browser decodes into pixels, by extension, for systems that report no MIME type. SVG is not one. */
 const IMAGE_EXTENSIONS: Record<string, string> = {
@@ -48,7 +48,7 @@ const generatedDefaults = (gen: TextureGenerator) => ({ generatorId: gen.id, par
 export interface TextureEditorProps {
   texture: TextureSource;
   transform: TextureTransform;
-  disabled: boolean;
+  disabled?: boolean;
   onTexture: (t: TextureSource, key: string | null) => void;
   onTransform: (t: TextureTransform, key: string) => void;
   /**
@@ -64,7 +64,7 @@ export interface TextureEditorProps {
 export function TextureEditor({
   texture: tex,
   transform,
-  disabled,
+  disabled = false,
   onTexture,
   onTransform,
   applyFile,

@@ -1,7 +1,8 @@
 "use client";
 
 import type { Background } from "@/lib/document/types";
-import type { Bounds } from "@/lib/geometry/polygon";
+import { type Bounds, boundsHeight, boundsWidth } from "@/lib/geometry/polygon";
+import { toImageData } from "@/lib/raster/image";
 import { renderBackground } from "@/lib/render/background";
 import { store } from "../state/store";
 import { createCanvas2d } from "./canvas";
@@ -35,29 +36,27 @@ const sameBounds = (a: Bounds, b: Bounds) =>
 function render(background: Background, bounds: Bounds, step: number): Rendered {
   const r = renderBackground(background, bounds, step, lookupTextureImage);
   const { canvas, ctx } = createCanvas2d(r.image.width, r.image.height);
-  ctx.putImageData(new ImageData(r.image.data as Uint8ClampedArray<ArrayBuffer>, r.image.width, r.image.height), 0, 0);
+  ctx.putImageData(toImageData(r.image), 0, 0);
   return { background, bounds, step, pendingAt: r.pending ? store.getState().textureVersion : null, canvas };
 }
 
 /** The px/mm a background over `bounds` is rendered at for a board showing `pxPerMm`: within the board's pixel budget. */
 function boardStep(bounds: Bounds, pxPerMm: number): number {
-  const area = Math.max((bounds.maxX - bounds.minX) * (bounds.maxY - bounds.minY), 1e-6);
+  const area = Math.max(boundsWidth(bounds) * boundsHeight(bounds), 1e-6);
   return Math.min(scaleStep(pxPerMm), Math.sqrt(BOARD_PIXELS / area));
 }
 
 /**
- * The background's pixels for the board, to be drawn stretched over `bounds`. A plain colour needs none (null). When
- * the extent or zoom has changed, the last rendering is returned at once and a new one follows once they hold still
- * (`spriteVersion` moves), so a drag that grows the artwork never waits on a render.
+ * The pixels of a textured (not plain) background for the board, to be drawn stretched over `bounds`. Only
+ * the first rendering is made at once; after any change (texture, extent, zoom) the last one is returned stretched and
+ * a new one follows once things hold still (`backgroundVersion` moves), so neither a drag nor a slider waits on it.
  */
-export function boardBackground(background: Background, bounds: Bounds, pxPerMm: number): HTMLCanvasElement | null {
-  if (background.texture.kind === "plain") return null;
+export function boardBackground(background: Background, bounds: Bounds, pxPerMm: number): HTMLCanvasElement {
   const step = boardStep(bounds, pxPerMm);
   const version = store.getState().textureVersion;
   const fresh = (r: Rendered) => r.background === background && (r.pendingAt === null || r.pendingAt === version);
   if (last && fresh(last) && sameBounds(last.bounds, bounds) && last.step === step) return last.canvas;
-  if (!last || last.background !== background) {
-    // A new background (or the first) is drawn at once: there is nothing of it to stretch meanwhile.
+  if (!last) {
     last = render(background, bounds, step);
     return last.canvas;
   }
@@ -65,7 +64,7 @@ export function boardBackground(background: Background, bounds: Bounds, pxPerMm:
   timer = setTimeout(() => {
     timer = null;
     last = render(background, bounds, step);
-    store.set({ spriteVersion: store.getState().spriteVersion + 1 });
+    store.set({ backgroundVersion: store.getState().backgroundVersion + 1 });
   }, SETTLE_MS);
   return last.canvas;
 }

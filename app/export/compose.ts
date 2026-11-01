@@ -1,32 +1,32 @@
 /**
  * Composes the artwork into an image file: the background, then every placed piece in z-order with the board's drop
- * shadow. It uses only `OffscreenCanvas` and the pure renderers, so it runs in the export worker, or on the page where
- * a worker cannot start (D015).
+ * shadow. It uses only `OffscreenCanvas` and the pure renderers, and runs in the export worker (D015).
  */
 import { getPiece } from "@/lib/document/ops";
-import type { MosaicDocument, Piece } from "@/lib/document/types";
+import type { MosaicDocument } from "@/lib/document/types";
 import { type ExportOptions, type ExportPlan, SHADOW_REFERENCE_PX_PER_MM, pieceShadow } from "@/lib/export/plan";
-import type { RgbaImage } from "@/lib/raster/image";
+import { type RgbaImage, toImageData } from "@/lib/raster/image";
 import { renderBackground } from "@/lib/render/background";
-import { renderPiece } from "@/lib/render/piece";
+import { isLit, renderPiece } from "@/lib/render/piece";
 import type { ImageLookup } from "@/lib/textures/sample";
 
 /** JPG quality: visually lossless for paper textures, a fraction of the PNG's size. */
 const JPEG_QUALITY = 0.92;
 
-function toCanvas(img: RgbaImage): OffscreenCanvas {
-  const c = new OffscreenCanvas(img.width, img.height);
-  c.getContext("2d")!.putImageData(new ImageData(img.data as Uint8ClampedArray<ArrayBuffer>, img.width, img.height), 0, 0);
-  return c;
-}
-
-const lit = (p: Piece) => p.relief.style !== "none" || p.relief.textureBump > 0;
+/** How often, at most, progress is reported; a yield to the event loop goes with each report. */
+const PROGRESS_MS = 100;
 
 interface Sprite {
   canvas: OffscreenCanvas;
   originX: number;
   originY: number;
   scale: number;
+}
+
+function toCanvas(img: RgbaImage): OffscreenCanvas {
+  const c = new OffscreenCanvas(img.width, img.height);
+  c.getContext("2d")!.putImageData(toImageData(img), 0, 0);
+  return c;
 }
 
 export async function composeArtwork(
@@ -46,21 +46,24 @@ export async function composeArtwork(
     if (tex.kind === "plain") {
       ctx.fillStyle = tex.color;
       ctx.fillRect(0, 0, width, height);
-    } else ctx.drawImage(toCanvas(renderBackground(doc.background, bounds, s, images).image), 0, 0);
+    } else {
+      // Opaque and the size of the output: written straight in, with no intermediate canvas.
+      ctx.putImageData(toImageData(renderBackground(doc.background, bounds, s, images).image), 0, 0);
+    }
   }
   onProgress(1 / steps);
+  let reported = performance.now();
 
   const shadow = doc.board.shadow > 0 ? pieceShadow(doc.board.shadow, s / SHADOW_REFERENCE_PX_PER_MM) : null;
-  // A piece placed many times is rendered once, unless its relief is lit: then once per turn (D013).
+  // A piece placed many times is rendered once. A lit one differs with every turn (D013), so it is not kept.
   const sprites = new Map<string, Sprite>();
   for (const [i, pl] of doc.placements.entries()) {
     const piece = getPiece(doc, pl.pieceId);
-    const key = lit(piece) ? `${piece.id}@${pl.pose.rotation}` : piece.id;
-    let sprite = sprites.get(key);
+    let sprite = sprites.get(piece.id);
     if (!sprite) {
       const r = renderPiece(piece, s, images, pl.pose.rotation);
       sprite = { canvas: toCanvas(r.image), originX: r.originX, originY: r.originY, scale: r.scale };
-      sprites.set(key, sprite);
+      if (!isLit(piece)) sprites.set(piece.id, sprite);
     }
     ctx.save();
     if (shadow) {
@@ -75,9 +78,13 @@ export async function composeArtwork(
     const k = s / sprite.scale;
     ctx.drawImage(sprite.canvas, -sprite.originX * k, -sprite.originY * k, sprite.canvas.width * k, sprite.canvas.height * k);
     ctx.restore();
-    onProgress((i + 2) / steps);
-    // Let a progress message out between pieces.
-    await new Promise((r) => setTimeout(r, 0));
+    if (performance.now() - reported > PROGRESS_MS) {
+      onProgress((i + 2) / steps);
+      reported = performance.now();
+      // Let the progress message out.
+      await new Promise((r) => setTimeout(r, 0));
+    }
   }
+  onProgress(1);
   return out.convertToBlob(opts.format === "jpeg" ? { type: "image/jpeg", quality: JPEG_QUALITY } : { type: "image/png" });
 }
