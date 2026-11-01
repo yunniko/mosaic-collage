@@ -54,15 +54,15 @@ export function pixelColor(tex: TextureSampling, layers: readonly PreparedLayer[
   }
 }
 
+/** True when the piece's pixels depend on its turn on the board: its relief is lit (D013). */
+export const isLit = (piece: Piece): boolean => piece.relief.style !== "none" || piece.relief.textureBump > 0;
+
 /**
  * Renders a piece at `scale` px/mm: texture, then its colour layers in order, cut by the (torn) outline's coverage
  * mask; then the torn edge's band, the relief's lighting, and the fuzz and fibres outside the line (D011). Each step is
  * a pure function of the piece (and the decoded images it names), so the same pixels come out in a unit test, on the
  * boards and in an export.
  */
-/** True when the piece's pixels depend on its turn on the board: its relief is lit (D013). */
-export const isLit = (piece: Piece): boolean => piece.relief.style !== "none" || piece.relief.textureBump > 0;
-
 export function renderPiece(piece: Piece, requestedScale: number, images: ImageLookup, turn = 0): PieceSprite {
   const tear = pieceTear(piece);
   const outline = pieceOutline(piece);

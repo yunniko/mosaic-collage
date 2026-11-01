@@ -12,12 +12,24 @@ test.beforeEach(async ({ page }) => {
 });
 
 /**
- * Exports through the UI and returns the downloaded file. The confirmation is checked as the download starts: it
- * lasts 4 s, and the browser may take longer than that to finish writing the file.
+ * Exports through the UI and returns the downloaded file, checking the confirmation shown for it. The page records
+ * the notices it shows: Firefox's driver can stall for longer than a notice's 4 s while it handles a download, so a
+ * notice may come and go before a locator would have looked.
  */
 async function exported(page: Page): Promise<{ bytes: Buffer; download: Download }> {
+  await page.evaluate(() => {
+    const seen: string[] = [];
+    (window as unknown as { seenNotices: string[] }).seenNotices = seen;
+    new MutationObserver((records) => {
+      for (const r of records)
+        for (const n of r.addedNodes)
+          if (n instanceof HTMLElement && n.dataset.testid?.startsWith("notice-")) seen.push(n.textContent ?? "");
+    }).observe(document.body, { childList: true, subtree: true });
+  });
   const [download] = await Promise.all([page.waitForEvent("download"), page.getByTestId("export-start").click()]);
-  await expect(ui(page).notice(`Exported ${download.suggestedFilename()}`)).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as { seenNotices: string[] }).seenNotices))
+    .toContain(`Exported ${download.suggestedFilename()}.`);
   return { bytes: await readFile(await download.path()), download };
 }
 

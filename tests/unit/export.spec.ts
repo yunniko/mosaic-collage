@@ -3,9 +3,10 @@ import { createDocument, defaultPiece, defaultTornEdge } from "@/lib/document/de
 import { addPiece, placePiece, usedAssetIds } from "@/lib/document/ops";
 import type { MosaicDocument, Piece } from "@/lib/document/types";
 import { parseDocument } from "@/lib/document/validate";
-import { MAX_EXPORT_PIXELS, exportPlan, pieceShadow } from "@/lib/export/plan";
+import { MAX_EXPORT_PIXELS, exportPlan } from "@/lib/export/plan";
 import { polygonBounds } from "@/lib/geometry/polygon";
 import { renderBackground } from "@/lib/render/background";
+import { pieceShadow } from "@/lib/render/shadow";
 import { shapeOutline } from "@/lib/shapes/outline";
 
 const NO_IMAGES = () => undefined;
@@ -22,6 +23,20 @@ describe("background", () => {
     expect(doc.background.texture).toEqual({ kind: "plain", color: "#123456" });
     expect(doc.background.padding).toBe(7);
     expect(warnings).toEqual([]);
+  });
+
+  it("reads the generated and picture backgrounds from before D014", () => {
+    const base = JSON.parse(JSON.stringify(createDocument()));
+    const generated = parseDocument({
+      ...base,
+      background: { kind: "texture", generatorId: "marble", params: {}, colors: ["#112233", "#ddeeff"], seed: 9, padding: 4 },
+    });
+    expect(generated.doc.background.texture).toMatchObject({ kind: "generated", generatorId: "marble", seed: 9 });
+    expect(generated.doc.background.padding).toBe(4);
+    const picture = parseDocument({ ...base, background: { kind: "image", assetId: "gone", fit: "tile", padding: 3 } });
+    // The picture's bytes are not in this file: it falls back with a warning, as a current one would.
+    expect(picture.doc.background.texture.kind).toBe("plain");
+    expect(picture.warnings.length).toBe(1);
   });
 
   it("falls back to the default colour when its picture is missing, and says so", () => {

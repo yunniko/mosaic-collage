@@ -6,9 +6,9 @@ import { getPiece } from "@/lib/document/ops";
 import { newId } from "@/lib/document/defaults";
 import type { MosaicDocument, Placement } from "@/lib/document/types";
 import { type Pose, transformPolygon, worldToLocal } from "@/lib/geometry/pose";
-import { type Bounds, polygonBounds } from "@/lib/geometry/polygon";
+import { type Bounds, expandBounds, polygonBounds } from "@/lib/geometry/polygon";
 import { angleBetween, angleDelta, distance, type Vec } from "@/lib/geometry/vec";
-import { pieceOutline } from "@/lib/shapes/outline";
+import { pieceOutline, pieceTear } from "@/lib/shapes/outline";
 import { type Camera, fitBounds, panBy, pinch, screenToWorld, wheelZoom } from "@/lib/view/camera";
 import { type DragState, dragTo, rotateDrag, startDrag } from "@/lib/workboard/drag";
 import { type DragRules, moveFree, obstaclesFor, placeFree } from "@/lib/workboard/placement";
@@ -87,7 +87,14 @@ export function WorkboardCanvas() {
     // The artwork's extent follows the piece in hand too, so the background grows as it is dragged outward.
     const moving =
       g.kind === "drag"
-        ? { exclude: activeId ?? undefined, bounds: polygonBounds(transformPolygon(g.state.outline, g.state.pose)) }
+        ? {
+            exclude: activeId ?? undefined,
+            // Grown by its torn edge's reach, as a placed piece's extent is (scene.ts).
+            bounds: expandBounds(
+              polygonBounds(transformPolygon(g.state.outline, g.state.pose)),
+              pieceTear(getPiece(doc, g.pieceId))?.reach ?? 0
+            ),
+          }
         : undefined;
     drawTable(ctx, cam, w, h);
     ctx.save();

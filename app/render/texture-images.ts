@@ -38,9 +38,9 @@ export function lookupTextureImage(key: string): RgbaImage | "failed" | undefine
     })
     .then((result) => {
       decoding.delete(key);
-      // The asset may have gone with a loaded or new document while it was decoding.
-      if (store.getState().assets.get(assetId) !== bytes) return;
-      decoded.set(key, result);
+      // The asset may have gone with a loaded or new document while it was decoding: the result is dropped, but
+      // waiters (an export) are still told to look again, so they see the asset missing instead of waiting on.
+      if (store.getState().assets.get(assetId) === bytes) decoded.set(key, result);
       store.set({ textureVersion: store.getState().textureVersion + 1 });
     });
   return undefined;

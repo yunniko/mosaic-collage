@@ -211,11 +211,18 @@ function board(v: unknown): BoardSettings {
   };
 }
 
+/** A background from before D014 (a colour, a generated texture or a picture, with no transform) as a texture. */
+function legacyBackgroundTexture(o: Record<string, unknown>): Record<string, unknown> | null {
+  if (o.kind === "color") return { kind: "plain", color: o.color };
+  if (o.kind === "texture") return { ...o, kind: "generated" };
+  if (o.kind === "image") return { kind: "image", assetId: o.assetId };
+  return null;
+}
+
 function background(v: unknown, assetIds: Set<string>, warnings: string[]): Background {
   const o = isObj(v) ? v : {};
   const padding = num(o.padding, DEFAULT_BACKGROUND.padding, 0, 1000);
-  // Before D014 a background was a bare colour: `{ kind: "color", color }`.
-  const raw = isObj(o.texture) ? o.texture : o.kind === "color" ? { kind: "plain", color: o.color } : null;
+  const raw = isObj(o.texture) ? o.texture : legacyBackgroundTexture(o);
   let tex = raw ? texture(raw) : structuredClone(DEFAULT_BACKGROUND.texture);
   if ((tex.kind === "image" || tex.kind === "pdf") && !assetIds.has(tex.assetId)) {
     warnings.push("The background's file is missing; it was given a plain colour.");

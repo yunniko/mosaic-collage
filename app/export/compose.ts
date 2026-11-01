@@ -4,10 +4,11 @@
  */
 import { getPiece } from "@/lib/document/ops";
 import type { MosaicDocument } from "@/lib/document/types";
-import { type ExportOptions, type ExportPlan, SHADOW_REFERENCE_PX_PER_MM, pieceShadow } from "@/lib/export/plan";
+import type { ExportOptions, ExportPlan } from "@/lib/export/plan";
 import { type RgbaImage, toImageData } from "@/lib/raster/image";
 import { renderBackground } from "@/lib/render/background";
 import { isLit, renderPiece } from "@/lib/render/piece";
+import { SHADOW_REFERENCE_PX_PER_MM, pieceShadow } from "@/lib/render/shadow";
 import type { ImageLookup } from "@/lib/textures/sample";
 
 /** JPG quality: visually lossless for paper textures, a fraction of the PNG's size. */
@@ -55,7 +56,10 @@ export async function composeArtwork(
   let reported = performance.now();
 
   const shadow = doc.board.shadow > 0 ? pieceShadow(doc.board.shadow, s / SHADOW_REFERENCE_PX_PER_MM) : null;
-  // A piece placed many times is rendered once. A lit one differs with every turn (D013), so it is not kept.
+  // A piece placed many times is rendered once; a lit one differs with every turn (D013). Only sprites that will be
+  // drawn again are kept, so memory holds the repeats, not every piece.
+  const uses = new Map<string, number>();
+  for (const pl of doc.placements) uses.set(pl.pieceId, (uses.get(pl.pieceId) ?? 0) + 1);
   const sprites = new Map<string, Sprite>();
   for (const [i, pl] of doc.placements.entries()) {
     const piece = getPiece(doc, pl.pieceId);
@@ -63,7 +67,7 @@ export async function composeArtwork(
     if (!sprite) {
       const r = renderPiece(piece, s, images, pl.pose.rotation);
       sprite = { canvas: toCanvas(r.image), originX: r.originX, originY: r.originY, scale: r.scale };
-      if (!isLit(piece)) sprites.set(piece.id, sprite);
+      if (!isLit(piece) && uses.get(piece.id)! > 1) sprites.set(piece.id, sprite);
     }
     ctx.save();
     if (shadow) {

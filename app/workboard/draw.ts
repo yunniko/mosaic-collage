@@ -1,7 +1,7 @@
 "use client";
 
 import type { MosaicDocument, Piece, Placement } from "@/lib/document/types";
-import { pieceShadow } from "@/lib/export/plan";
+import { pieceShadow } from "@/lib/render/shadow";
 import type { Pose } from "@/lib/geometry/pose";
 import { type Bounds, type Polygon, boundsHeight, boundsOverlap, boundsWidth } from "@/lib/geometry/polygon";
 import type { Camera } from "@/lib/view/camera";

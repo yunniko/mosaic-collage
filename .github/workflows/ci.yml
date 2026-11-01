@@ -31,10 +31,13 @@ jobs:
       # The image builds the export from this checkout, so the suite can never run against a stale build.
       - run: docker build -t mosaic-collage .
       - run: docker run -d --name mosaic -p 127.0.0.1:4317:80 mosaic-collage
+      - run: timeout 30 sh -c 'until curl -sf http://127.0.0.1:4317/ >/dev/null; do sleep 1; done'
       - run: npx playwright test
         env:
           CI: "1"
           E2E_EXTERNAL: "1"
+      - run: docker logs mosaic
+        if: failure()
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

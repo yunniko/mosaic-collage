@@ -30,6 +30,16 @@ interface Rendered {
 let last: Rendered | null = null;
 let timer: ReturnType<typeof setTimeout> | null = null;
 
+/** Same kind and same generator or file: a tweak, which may show the last rendering stretched until it settles. */
+function sameSource(a: Background, b: Background): boolean {
+  const x = a.texture;
+  const y = b.texture;
+  if (x.kind !== y.kind) return false;
+  if (x.kind === "generated" && y.kind === "generated") return x.generatorId === y.generatorId;
+  if ((x.kind === "image" || x.kind === "pdf") && (y.kind === "image" || y.kind === "pdf")) return x.assetId === y.assetId;
+  return true;
+}
+
 const sameBounds = (a: Bounds, b: Bounds) =>
   Math.abs(a.minX - b.minX) + Math.abs(a.minY - b.minY) + Math.abs(a.maxX - b.maxX) + Math.abs(a.maxY - b.maxY) < 1e-6;
 
@@ -47,16 +57,19 @@ function boardStep(bounds: Bounds, pxPerMm: number): number {
 }
 
 /**
- * The pixels of a textured (not plain) background for the board, to be drawn stretched over `bounds`. Only
- * the first rendering is made at once; after any change (texture, extent, zoom) the last one is returned stretched and
- * a new one follows once things hold still (`backgroundVersion` moves), so neither a drag nor a slider waits on it.
+ * The pixels of a textured (not plain) background for the board, to be drawn stretched over `bounds`. A new
+ * texture source is rendered at once; after a tweak to it, or a new extent or zoom, the last rendering is returned
+ * stretched and a new one follows once things hold still (`backgroundVersion` moves), so neither a drag nor a slider waits on it.
  */
 export function boardBackground(background: Background, bounds: Bounds, pxPerMm: number): HTMLCanvasElement {
   const step = boardStep(bounds, pxPerMm);
   const version = store.getState().textureVersion;
   const fresh = (r: Rendered) => r.background === background && (r.pendingAt === null || r.pendingAt === version);
   if (last && fresh(last) && sameBounds(last.bounds, bounds) && last.step === step) return last.canvas;
-  if (!last) {
+  if (!last || !sameSource(last.background, background)) {
+    // Nothing of this texture to stretch meanwhile (the first, another kind, another document): drawn at once.
+    if (timer) clearTimeout(timer);
+    timer = null;
     last = render(background, bounds, step);
     return last.canvas;
   }
