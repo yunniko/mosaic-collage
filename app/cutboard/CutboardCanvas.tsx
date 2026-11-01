@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { updatePiece } from "@/lib/document/ops";
+import type { ShapeSource } from "@/lib/document/types";
 import { type Bounds, polygonBounds } from "@/lib/geometry/polygon";
 import { type Vec, distance } from "@/lib/geometry/vec";
 import { STABILIZATION, STROKE_MIN_STEP_MM } from "@/lib/shapes/hand";
@@ -39,7 +40,13 @@ export function CutboardCanvas() {
       setStrokeFrame((n) => n + 1);
     });
   }, []);
-  useEffect(() => () => cancelAnimationFrame(pendingFrame.current), []);
+  useEffect(
+    () => () => {
+      cancelAnimationFrame(pendingFrame.current);
+      pendingFrame.current = 0;
+    },
+    []
+  );
   const bounds: Bounds | null = useMemo(() => {
     if (!piece) return null;
     try {
@@ -49,10 +56,10 @@ export function CutboardCanvas() {
     }
   }, [piece]);
 
-  // The view is re-framed when another piece is selected or the board is resized; editing the same piece keeps it.
+  // The view is re-framed when another piece is selected, the board is resized, or the shape becomes a different kind
+  // of shape (another predefined shape or generator, a new hand cut); tuning the same shape's parameters keeps it.
   // A pan or zoom is kept against the frame it was made in, so a new frame simply supersedes it.
-  const pieceId = piece?.id;
-  const frameKey = `${pieceId}|${width}|${height}`;
+  const frameKey = `${piece?.id}|${piece ? shapeFamily(piece.shape) : ""}|${width}|${height}`;
   const framed = useMemo(() => {
     const b = bounds ?? { minX: -50, minY: -50, maxX: 50, maxY: 50 };
     const pad = Math.max(b.maxX - b.minX, b.maxY - b.minY) * 0.35 + 10;
@@ -96,10 +103,13 @@ export function CutboardCanvas() {
   }, [cutting, cancelCut]);
 
   const finishCut = useCallback(
-    (points: Vec[]) => {
+    (points: Vec[], pieceId: string) => {
       showStroke(null);
       const current = live.current.piece;
-      if (!current) return;
+      // The cut may have been cancelled (Esc) or the selection changed while the stroke was being drawn.
+      if (!live.current.cutting || !current || current.id !== pieceId) return;
+      // A click or tap is not a cut attempt: stay in cut mode without complaint.
+      if (points.length < 3) return;
       const stabilization = current.shape.kind === "hand" ? current.shape.stabilization : STABILIZATION.default;
       const shape = { kind: "hand" as const, points, stabilization };
       const ok = store.apply(
@@ -183,6 +193,23 @@ function drawStroke(ctx: CanvasRenderingContext2D, stroke: Vec[], cam: Camera, w
   ctx.restore();
 }
 
+/** What identifies a shape for framing: its kind and template, or for a hand cut, the stroke itself. */
+const strokeIds = new WeakMap<Vec[], number>();
+let nextStrokeId = 0;
+function shapeFamily(shape: ShapeSource): string {
+  switch (shape.kind) {
+    case "predefined":
+      return `p:${shape.shapeId}`;
+    case "generated":
+      return `g:${shape.generatorId}`;
+    case "hand": {
+      let id = strokeIds.get(shape.points);
+      if (id === undefined) strokeIds.set(shape.points, (id = ++nextStrokeId));
+      return `h:${id}`;
+    }
+  }
+}
+
 /** Stroke points are kept to a hundredth of a millimetre: finer than any hand, and it keeps saved files small. */
 const roundMm = (v: number) => Math.round(v * 100) / 100;
 
@@ -196,9 +223,9 @@ function useBoardPointers(
     width: number;
     height: number;
     setCam: (f: (c: Camera) => Camera) => void;
-    live: React.RefObject<{ cam: Camera; cutting: boolean }>;
+    live: React.RefObject<{ cam: Camera; cutting: boolean; piece: { id: string } | null }>;
     showStroke: (points: Vec[] | null) => void;
-    finishCut: (points: Vec[]) => void;
+    finishCut: (points: Vec[], pieceId: string) => void;
   }
 ) {
   const { width, height, setCam, live, showStroke, finishCut } = opts;
@@ -206,7 +233,7 @@ function useBoardPointers(
     const canvas = ref.current;
     if (!canvas) return;
     const pointers = new Map<number, Vec>();
-    let drawing: { pointerId: number; points: Vec[] } | null = null;
+    let drawing: { pointerId: number; pieceId: string; points: Vec[] } | null = null;
     const toWorld = (p: Vec) => {
       const w = screenToWorld(live.current.cam, p, width, height);
       return { x: roundMm(w.x), y: roundMm(w.y) };
@@ -218,8 +245,8 @@ function useBoardPointers(
       if (pointers.size > 1) {
         drawing = null;
         showStroke(null);
-      } else if (live.current.cutting && e.button === 0) {
-        drawing = { pointerId: e.pointerId, points: [toWorld(p)] };
+      } else if (live.current.cutting && live.current.piece && e.button === 0) {
+        drawing = { pointerId: e.pointerId, pieceId: live.current.piece.id, points: [toWorld(p)] };
         showStroke(drawing.points);
       }
     };
@@ -243,9 +270,9 @@ function useBoardPointers(
     const up = (e: PointerEvent) => {
       pointers.delete(e.pointerId);
       if (drawing && drawing.pointerId === e.pointerId) {
-        const points = drawing.points;
+        const { points, pieceId } = drawing;
         drawing = null;
-        if (e.type === "pointerup") finishCut(points);
+        if (e.type === "pointerup") finishCut(points, pieceId);
         else showStroke(null);
       }
     };

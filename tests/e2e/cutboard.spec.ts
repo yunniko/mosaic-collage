@@ -106,3 +106,26 @@ test("a cut that crosses itself into two pieces is refused with a message", asyn
   const { doc } = await savedDocument(page);
   expect(doc.pieces[0].shape.kind).toBe("predefined");
 });
+
+test("Esc during a stroke cancels the cut, and a stray click is not an error", async ({ page }) => {
+  await openStudio(page);
+  const u = ui(page);
+  await u.newPiece.click();
+  await u.shapeSource.selectOption("hand");
+  const b = (await u.cutboard.boundingBox())!;
+  // A click without a drag is ignored: no notice, still cutting.
+  await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2);
+  await expect(u.notice(/./)).toHaveCount(0);
+  await expect(u.cutHint).toBeVisible();
+
+  await page.mouse.move(b.x + b.width * 0.3, b.y + b.height * 0.3);
+  await page.mouse.down();
+  await page.mouse.move(b.x + b.width * 0.7, b.y + b.height * 0.3, { steps: 8 });
+  await page.mouse.move(b.x + b.width * 0.5, b.y + b.height * 0.7, { steps: 8 });
+  await page.keyboard.press("Escape");
+  await page.mouse.move(b.x + b.width * 0.3, b.y + b.height * 0.3, { steps: 8 });
+  await page.mouse.up();
+  await expect(u.cutHint).toBeHidden();
+  const { doc } = await savedDocument(page);
+  expect(doc.pieces[0].shape.kind).toBe("predefined");
+});

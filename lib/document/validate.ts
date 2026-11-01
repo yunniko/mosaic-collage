@@ -64,7 +64,7 @@ function shape(v: unknown): ShapeSource | null {
     return { kind: "generated", generatorId: v.generatorId, params: params(v.params), seed: num(v.seed, 1) >>> 0 };
   if (v.kind === "hand") {
     const pts = points(v.points);
-    // Files from before D007 stored the finished outline; stabilisation 0 keeps it as it was.
+    // A missing stabilisation reads as 0: the stroke is cut as drawn, without smoothing.
     return pts ? { kind: "hand", points: pts, stabilization: num(v.stabilization, 0, 0, 100) } : null;
   }
   return null;

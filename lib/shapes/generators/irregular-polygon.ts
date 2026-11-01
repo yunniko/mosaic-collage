@@ -4,7 +4,8 @@ import type { ShapeGenerator } from "./registry";
 
 /**
  * A rough polygon like a cut tessera: corners at increasing angles around the centre, each angle and distance jittered.
- * Increasing angles about one centre make the outline star-shaped, so it never crosses itself.
+ * Every angular step stays under half a turn, so the centre sees the whole outline: it is star-shaped about the centre
+ * and never crosses itself.
  */
 export const irregularPolygon: ShapeGenerator = {
   id: "irregular-polygon",
@@ -19,8 +20,10 @@ export const irregularPolygon: ShapeGenerator = {
     const n = Math.round(sides);
     const irr = irregularity / 100;
     const spike = spikiness / 100;
-    // Angular steps vary by up to ±80 % of an even step, then are scaled to close the circle.
-    const steps = Array.from({ length: n }, () => 1 + range(rng, -0.8, 0.8) * irr);
+    // Angular steps vary by up to ±80 % of an even step, then are scaled to close the circle. With jitter a, the largest
+    // share of the turn is (1+a)/((1+a)+(n-1)(1-a)), which stays under half while a < (n-2)/n; 0.9 of that keeps a margin.
+    const jitter = Math.min(0.8, (0.9 * (n - 2)) / n) * irr;
+    const steps = Array.from({ length: n }, () => 1 + range(rng, -jitter, jitter));
     const total = steps.reduce((a, b) => a + b, 0);
     const radius = size / 2;
     const start = range(rng, 0, Math.PI * 2);

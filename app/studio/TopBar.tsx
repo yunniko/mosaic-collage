@@ -69,10 +69,26 @@ export function TopBar() {
         {tab("workboard")}
       </nav>
       <div className="ml-auto flex flex-wrap gap-1.5">
-        <button type="button" className="btn" onClick={() => store.undo()} disabled={!canUndo} title="Ctrl+Z" data-testid="undo">
+        <button
+          type="button"
+          className="btn"
+          onClick={() => store.undo()}
+          disabled={!canUndo}
+          title="Ctrl+Z"
+          aria-keyshortcuts="Control+Z"
+          data-testid="undo"
+        >
           {t("file.undo")}
         </button>
-        <button type="button" className="btn" onClick={() => store.redo()} disabled={!canRedo} title="Ctrl+Shift+Z" data-testid="redo">
+        <button
+          type="button"
+          className="btn"
+          onClick={() => store.redo()}
+          disabled={!canRedo}
+          title="Ctrl+Shift+Z"
+          aria-keyshortcuts="Control+Shift+Z"
+          data-testid="redo"
+        >
           {t("file.redo")}
         </button>
         <button type="button" className="btn" onClick={fresh} data-testid="file-new">
@@ -81,7 +97,14 @@ export function TopBar() {
         <button type="button" className="btn" onClick={open} data-testid="file-open">
           {t("file.open")}
         </button>
-        <button type="button" className="btn btn-primary" onClick={save} title="Ctrl+S" data-testid="file-save">
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={save}
+          title="Ctrl+S"
+          aria-keyshortcuts="Control+S"
+          data-testid="file-save"
+        >
           {t("file.save")}
         </button>
       </div>

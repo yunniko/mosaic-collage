@@ -55,6 +55,15 @@ describe("shape generators", () => {
     });
   }
 
+  it("keeps a few-sided, fully irregular polygon from crossing itself", () => {
+    for (const sides of [3, 4, 5]) {
+      for (let seed = 1; seed <= 2000; seed++) {
+        const params = { size: 40, sides, irregularity: 100, spikiness: 100 };
+        expect(() => shapeOutline({ kind: "generated", generatorId: "irregular-polygon", params, seed })).not.toThrow();
+      }
+    }
+  });
+
   it("sizes a blob by its size parameter", () => {
     const o = shapeOutline({ kind: "generated", generatorId: "blob", params: { size: 50, lobes: 3, wobble: 0 }, seed: 3 });
     const b = polygonBounds(o);

@@ -26,8 +26,9 @@ export function ShapeSection({ piece, disabled, onChange }: SectionProps) {
   const startCut = () => store.set({ cuttingPieceId: piece.id });
 
   const switchTo = (kind: Source) => {
-    if (kind === shape.kind) return;
     store.set({ cuttingPieceId: null });
+    // Picking the piece's own source again (to leave cut mode) changes nothing else.
+    if (kind === shape.kind) return;
     // A hand cut needs a stroke first: the shape changes when the cut is drawn, not when the source is picked.
     if (kind === "hand") return startCut();
     if (kind === "generated") {
@@ -53,8 +54,8 @@ export function ShapeSection({ piece, disabled, onChange }: SectionProps) {
         onChange={switchTo}
         testId="shape-source"
       />
-      {shape.kind === "predefined" ? <PredefinedFields shape={shape} disabled={disabled} onChange={setShape} /> : null}
-      {shape.kind === "generated" ? <GeneratedFields shape={shape} disabled={disabled} onChange={setShape} /> : null}
+      {shape.kind === "predefined" && !cutting ? <PredefinedFields shape={shape} disabled={disabled} onChange={setShape} /> : null}
+      {shape.kind === "generated" && !cutting ? <GeneratedFields shape={shape} disabled={disabled} onChange={setShape} /> : null}
       {shape.kind === "hand" ? <HandFields shape={shape} disabled={disabled} onChange={setShape} /> : null}
       {shape.kind === "hand" && !cutting && !disabled ? (
         <button type="button" className="btn self-start" onClick={startCut} data-testid="cut-again">
