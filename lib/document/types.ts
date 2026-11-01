@@ -150,10 +150,15 @@ export interface BoardSettings {
   shadow: number;
 }
 
-export type Background =
-  | { kind: "color"; color: string; padding: number }
-  | { kind: "texture"; generatorId: string; params: Params; colors: string[]; seed: number; padding: number }
-  | { kind: "image"; assetId: string; fit: "cover" | "tile"; padding: number };
+/**
+ * What the artwork is laid on: any texture a piece can have, laid over the artwork's bounds the way a piece's texture
+ * is laid over the piece's (D014), and how far it reaches past the outermost pieces, mm.
+ */
+export interface Background {
+  texture: TextureSource;
+  transform: TextureTransform;
+  padding: number;
+}
 
 export interface AssetMeta {
   id: string;

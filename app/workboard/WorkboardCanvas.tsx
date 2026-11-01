@@ -13,7 +13,7 @@ import { type Camera, fitBounds, panBy, pinch, screenToWorld, wheelZoom } from "
 import { type DragState, dragTo, rotateDrag, startDrag } from "@/lib/workboard/drag";
 import { type DragRules, moveFree, obstaclesFor, placeFree } from "@/lib/workboard/placement";
 import { artworkBounds, hitTest, placedShape } from "@/lib/workboard/scene";
-import { CLICK_SLOP, applyCamera, canvasPoint, prepareCanvas, useElementSize } from "../components/canvas-hooks";
+import { CLICK_SLOP, applyCamera, canvasPoint, dpr, prepareCanvas, useElementSize } from "../components/canvas-hooks";
 import { renderVersion } from "../render/sprites";
 import { drawTable } from "../render/surfaces";
 import { errorText } from "../state/errors";
@@ -92,7 +92,7 @@ export function WorkboardCanvas() {
     drawTable(ctx, cam, w, h);
     ctx.save();
     applyCamera(ctx, cam, w, h);
-    drawArtworkBackground(ctx, doc, artworkBounds(doc, moving));
+    drawArtworkBackground(ctx, doc, artworkBounds(doc, moving), cam.zoom * dpr());
     ctx.restore();
 
     const layer = staticLayer(layerRef, doc, cam, w, h, activeId, renderVersion(store.getState()));

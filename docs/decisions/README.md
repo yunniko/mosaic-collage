@@ -13,3 +13,5 @@
 - D011 — Torn edges are a fractal offset of the cut line; relief is a lit height field from the edge distance — active
 - D012 — Large sprites show a coarser step at once and are refined in a Web Worker — active
 - D013 — A relief's light stays fixed on the board; lit sprites are cached per 5° turn — active
+- D014 — The background is a texture laid over the artwork's bounds plus a padding — active
+- D015 — Export composes at full resolution in a worker, with capped size — active

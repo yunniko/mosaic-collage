@@ -35,7 +35,7 @@ const FIELD_STEPS = 1024;
  * flat texture is coloured once and a generated one through a table over its field value; only images run the layers
  * per pixel.
  */
-function pixelColor(tex: TextureSampling, layers: readonly PreparedLayer[]): (x: number, y: number) => Rgb {
+export function pixelColor(tex: TextureSampling, layers: readonly PreparedLayer[]): (x: number, y: number) => Rgb {
   switch (tex.kind) {
     case "flat": {
       const c = applyLayers(tex.color, layers);

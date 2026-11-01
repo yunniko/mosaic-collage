@@ -2,12 +2,14 @@ import type { MosaicDocument, Placement } from "../document/types";
 import { type Bounds, expandBounds, pointInPolygon, polygonBounds, type Polygon, unionBounds } from "../geometry/polygon";
 import { transformPolygon } from "../geometry/pose";
 import type { Vec } from "../geometry/vec";
-import { pieceOutline } from "../shapes/outline";
+import { pieceOutline, pieceTear } from "../shapes/outline";
 import { getPiece } from "../document/ops";
 
 export interface PlacedShape {
   outline: Polygon;
   bounds: Bounds;
+  /** `bounds` grown by how far a torn edge's fibres reach past the outline: what the piece's pixels cover. */
+  extent: Bounds;
 }
 
 const worldCache = new WeakMap<Placement, PlacedShape>();
@@ -16,8 +18,10 @@ const worldCache = new WeakMap<Placement, PlacedShape>();
 export function placedShape(doc: MosaicDocument, placement: Placement): PlacedShape {
   let s = worldCache.get(placement);
   if (!s) {
-    const outline = transformPolygon(pieceOutline(getPiece(doc, placement.pieceId)), placement.pose);
-    s = { outline, bounds: polygonBounds(outline) };
+    const piece = getPiece(doc, placement.pieceId);
+    const outline = transformPolygon(pieceOutline(piece), placement.pose);
+    const bounds = polygonBounds(outline);
+    s = { outline, bounds, extent: expandBounds(bounds, pieceTear(piece)?.reach ?? 0) };
     worldCache.set(placement, s);
   }
   return s;
@@ -36,7 +40,7 @@ export function hitTest(doc: MosaicDocument, p: Vec): Placement | null {
 
 const contentCache = new WeakMap<MosaicDocument, Map<string, Bounds | null>>();
 
-/** The bounds of every placed piece but `exclude`, or null if there are none. Cached per document object. */
+/** The extent of every placed piece but `exclude`, or null if there are none. Cached per document object. */
 function contentBounds(doc: MosaicDocument, exclude = ""): Bounds | null {
   let byExclude = contentCache.get(doc);
   if (!byExclude) contentCache.set(doc, (byExclude = new Map()));
@@ -44,7 +48,7 @@ function contentBounds(doc: MosaicDocument, exclude = ""): Bounds | null {
   let b: Bounds | null = null;
   for (const pl of doc.placements) {
     if (pl.id === exclude) continue;
-    const s = placedShape(doc, pl).bounds;
+    const s = placedShape(doc, pl).extent;
     b = b ? unionBounds(b, s) : s;
   }
   byExclude.set(exclude, b);

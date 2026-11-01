@@ -6,6 +6,8 @@ import type { BoardSettings } from "@/lib/document/types";
 import { NumberField, Section, Toggle } from "../components/controls";
 import { store, useAppState, useDoc } from "../state/store";
 import { selectionActions } from "./actions";
+import { BackgroundSection } from "./BackgroundSection";
+import { ExportSection } from "./ExportSection";
 
 /** Board rules (overlap, margin, auto-rotate, shadow) and actions on the selected placed pieces. */
 export function BoardPanel() {
@@ -80,6 +82,8 @@ export function BoardPanel() {
           ))}
         </div>
       </Section>
+      <BackgroundSection />
+      <ExportSection />
       <Section title={t("view")}>
         <button
           type="button"

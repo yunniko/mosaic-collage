@@ -34,7 +34,11 @@ export const DEFAULT_BOARD: BoardSettings = { allowOverlap: true, margin: 2, aut
 /** Shown in place of a texture that can't be drawn (its asset is missing). */
 export const FALLBACK_COLOR = "#888888";
 
-export const DEFAULT_BACKGROUND: Extract<Background, { kind: "color" }> = { kind: "color", color: "#f4efe4", padding: 10 };
+export const DEFAULT_BACKGROUND: Background = {
+  texture: { kind: "plain", color: "#f4efe4" },
+  transform: { offsetX: 0, offsetY: 0, scale: 1, rotation: 0 },
+  padding: 10,
+};
 
 /** A warm palette the "new piece" button cycles through, so consecutive pieces are told apart at a glance. */
 const STARTER_COLORS = ["#c8553d", "#f28f3b", "#ffd5c2", "#588b8b", "#2d3047", "#93b7be", "#e0ca3c", "#7d4e57"];
@@ -59,7 +63,7 @@ export function createDocument(name = "Untitled mosaic"): MosaicDocument {
     pieces: [],
     placements: [],
     board: { ...DEFAULT_BOARD },
-    background: { ...DEFAULT_BACKGROUND },
+    background: structuredClone(DEFAULT_BACKGROUND),
     assets: [],
   };
 }

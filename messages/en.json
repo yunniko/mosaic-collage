@@ -11,7 +11,6 @@
     "new": "New",
     "open": "Open…",
     "save": "Save",
-    "export": "Export…",
     "undo": "Undo",
     "redo": "Redo",
     "documentName": "Mosaic name",
@@ -187,7 +186,9 @@
     "lockedNotice": "That piece is locked. Unlock it to move it.",
     "settings": "Board",
     "view": "View",
-    "keys": "Keys: Delete removes · L locks or unlocks · R turns 15° (Shift: back) · [ ] move back or forward (Shift: to the end) · Esc clears the selection"
+    "keys": "Keys: Delete removes · L locks or unlocks · R turns 15° (Shift: back) · [ ] move back or forward (Shift: to the end) · Esc clears the selection",
+    "background": "Background",
+    "padding": "Padding around the pieces"
   },
   "errors": {
     "piece-placed": "That piece is on the workboard and can't be changed.",
@@ -234,5 +235,19 @@
     "saturation": "Saturation",
     "color": "Colour",
     "luminosity": "Luminosity"
+  },
+  "export": {
+    "title": "Export",
+    "format": "Format",
+    "background": "Include the background",
+    "resolution": "Resolution",
+    "dpi": "{dpi} dpi",
+    "size": "{width} × {height} px",
+    "empty": "Place pieces on the board to export them.",
+    "tooBig": "Too large at this resolution: at most {max} megapixels. Choose a lower one.",
+    "start": "Export image",
+    "working": "Exporting… {percent}%",
+    "done": "Exported {name}.",
+    "failed": "The export failed: {reason}"
   }
 }

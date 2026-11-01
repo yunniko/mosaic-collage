@@ -132,6 +132,7 @@ export function addAsset(doc: MosaicDocument, asset: AssetMeta): MosaicDocument 
 export function usedAssetIds(doc: MosaicDocument): Set<string> {
   const ids = new Set<string>();
   for (const p of doc.pieces) if (p.texture.kind === "image" || p.texture.kind === "pdf") ids.add(p.texture.assetId);
-  if (doc.background.kind === "image") ids.add(doc.background.assetId);
+  const bg = doc.background.texture;
+  if (bg.kind === "image" || bg.kind === "pdf") ids.add(bg.assetId);
   return ids;
 }

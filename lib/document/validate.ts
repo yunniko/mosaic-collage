@@ -211,22 +211,17 @@ function board(v: unknown): BoardSettings {
   };
 }
 
-function background(v: unknown, assetIds: Set<string>): Background {
+function background(v: unknown, assetIds: Set<string>, warnings: string[]): Background {
   const o = isObj(v) ? v : {};
   const padding = num(o.padding, DEFAULT_BACKGROUND.padding, 0, 1000);
-  if (o.kind === "texture" && typeof o.generatorId === "string")
-    return {
-      kind: "texture",
-      generatorId: o.generatorId,
-      params: params(o.params),
-      colors: colorList(o.colors),
-      seed: num(o.seed, 1) >>> 0,
-      padding,
-    };
-  const assetId = id(o.assetId);
-  if (o.kind === "image" && assetId && assetIds.has(assetId))
-    return { kind: "image", assetId, fit: o.fit === "tile" ? "tile" : "cover", padding };
-  return { kind: "color", color: color(o.color, DEFAULT_BACKGROUND.color), padding };
+  // Before D014 a background was a bare colour: `{ kind: "color", color }`.
+  const raw = isObj(o.texture) ? o.texture : o.kind === "color" ? { kind: "plain", color: o.color } : null;
+  let tex = raw ? texture(raw) : structuredClone(DEFAULT_BACKGROUND.texture);
+  if ((tex.kind === "image" || tex.kind === "pdf") && !assetIds.has(tex.assetId)) {
+    warnings.push("The background's file is missing; it was given a plain colour.");
+    tex = structuredClone(DEFAULT_BACKGROUND.texture);
+  }
+  return { texture: tex, transform: textureTransform(o.transform), padding };
 }
 
 function assets(v: unknown): AssetMeta[] {
@@ -284,7 +279,7 @@ export function parseDocument(json: unknown, availableAssets?: ReadonlySet<strin
       pieces,
       placements,
       board: board(json.board),
-      background: background(json.background, assetIds),
+      background: background(json.background, assetIds, warnings),
       assets: metas,
     },
     warnings,

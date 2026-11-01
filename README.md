@@ -4,15 +4,15 @@ A browser app for making mosaics and paper collages. Pieces are made on the **cu
 texture, colour, relief and torn edge. They are then placed, rotated and locked on the
 **workboard**. Mosaics are saved as editable `.mosaic` files and exported to JPG or PNG.
 
-**State:** goal G-001, milestone M1 done. M1 covers:
-- the document model, undo, and save/open;
-- predefined shapes in plain colours;
-- the workboard with drag, wheel/two-finger rotation, locking and z-order.
+**State:** goal G-001, all six milestones built (pending the Owner's sign-off). What it does:
+- cutboard: predefined, generated and hand-cut shapes; plain, generated, image and PDF-page textures
+  with blend modes and hue/saturation/lightness; bevel or emboss relief; torn edges;
+- workboard: place, move, rotate, lock and order pieces, with overlap on, or off with a margin;
+- a background (any texture) behind the artwork, with a padding;
+- save and open editable `.mosaic` files; export PNG (with or without the background) or JPG at
+  72–600 dpi.
 
-Generated and hand-cut shapes, textures, relief, no-overlap physics, backgrounds and export follow in
-M2–M6 (`GOALS.md`).
-
-Everything runs in the browser: no server, no accounts. The app will be served as a static site at
+Everything runs in the browser: no server, no accounts. The app is served as a static site at
 `https://mosaic.app.julienika.cz` (D005).
 
 ## Run

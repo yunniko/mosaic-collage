@@ -46,12 +46,28 @@ export function lookupTextureImage(key: string): RgbaImage | "failed" | undefine
   return undefined;
 }
 
+/** The pixels for `key` once decoded (or "failed"), for work such as an export that cannot use a stand-in. */
+export function settledTextureImage(key: string): Promise<RgbaImage | "failed"> {
+  return new Promise((resolve) => {
+    const check = () => {
+      const img = lookupTextureImage(key);
+      if (img === undefined) return false;
+      resolve(img);
+      return true;
+    };
+    if (check()) return;
+    const stop = store.subscribe(() => {
+      if (check()) stop();
+    });
+  });
+}
+
 /**
- * Drops decoded pixels no piece uses any more (an earlier PDF page, a replaced picture: each can hold 16 MB), and
+ * Drops decoded pixels no piece or background uses any more (an earlier PDF page, a replaced picture: each can hold 16 MB), and
  * closes PDFs whose asset left the store. Undoing back to such a texture decodes it again.
  */
 function prune(doc: MosaicDocument, assets: AssetStore) {
-  const used = new Set(doc.pieces.map((p) => textureImageKey(p.texture)));
+  const used = new Set([...doc.pieces.map((p) => p.texture), doc.background.texture].map(textureImageKey));
   for (const key of decoded.keys()) if (!used.has(key)) decoded.delete(key);
   for (const [assetId, open] of pdfs) {
     if (assets.get(assetId) === open.bytes) continue;
