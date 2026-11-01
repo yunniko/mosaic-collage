@@ -9,7 +9,8 @@ import { ShapeSection } from "./sections/ShapeSection";
 import { TextureSection } from "./sections/TextureSection";
 
 /** One section of the piece editor. Every section receives the piece and an `onChange` taking the whole next piece. */
-export type SectionProps = { piece: Piece; disabled: boolean; onChange: (next: Piece, coalesceKey: string) => void };
+/** `coalesceKey` folds repeated edits of one control into one undo step; `null` makes the edit a step of its own. */
+export type SectionProps = { piece: Piece; disabled: boolean; onChange: (next: Piece, coalesceKey: string | null) => void };
 
 export function PieceEditor() {
   const t = useTranslations();
@@ -26,12 +27,12 @@ export function PieceEditor() {
   }
 
   const placed = isPiecePlaced(doc, piece.id);
-  const onChange = (next: Piece, key: string) =>
-    store.applyCoalesced(
-      `${piece.id}:${key}`,
-      (d) => updatePiece(d, next),
-      (e) => store.notify("error", errorText(t, e))
-    );
+  const onChange = (next: Piece, key: string | null) => {
+    const change = (d: typeof doc) => updatePiece(d, next);
+    const onError = (e: unknown) => store.notify("error", errorText(t, e));
+    if (key === null) store.apply(change, onError);
+    else store.applyCoalesced(`${piece.id}:${key}`, change, onError);
+  };
 
   return (
     <aside

@@ -1,5 +1,5 @@
 import { type Polygon, perimeter, resampleEven, simplifyPolygon } from "../geometry/polygon";
-import type { Vec } from "../geometry/vec";
+import { type Vec, distance } from "../geometry/vec";
 import type { ParamSpec } from "./params";
 import { OutlineError, repairOutline } from "./repair";
 
@@ -19,6 +19,8 @@ const MAX_SIGMA_MM = 6;
 /** Spacing the stroke is resampled to before smoothing, in mm; widened for very long strokes to cap the work. */
 const SAMPLE_MM = 0.5;
 const MAX_SAMPLES = 4000;
+/** Stroke points closer than this to the previous one carry no shape, in mm; the board drops them while drawing. */
+export const STROKE_MIN_STEP_MM = 0.05;
 /** Deviation the final outline may have from the smoothed stroke, in mm. */
 const SIMPLIFY_MM = 0.05;
 
@@ -39,14 +41,14 @@ export function cutOutline(stroke: readonly Vec[], stabilization: number): Polyg
   return repairOutline(simplifyPolygon(ring, SIMPLIFY_MM));
 }
 
-/** Drops points closer than 0.05 mm to the one before, including the end against the start. */
+/** Drops points within `STROKE_MIN_STEP_MM` of the one before, including the end against the start. */
 function dedupe(stroke: readonly Vec[]): Vec[] {
   const out: Vec[] = [];
   for (const p of stroke) {
     const last = out[out.length - 1];
-    if (!last || Math.hypot(p.x - last.x, p.y - last.y) > 0.05) out.push(p);
+    if (!last || distance(p, last) > STROKE_MIN_STEP_MM) out.push(p);
   }
-  while (out.length > 1 && Math.hypot(out[0].x - out[out.length - 1].x, out[0].y - out[out.length - 1].y) <= 0.05) out.pop();
+  while (out.length > 1 && distance(out[0], out[out.length - 1]) <= STROKE_MIN_STEP_MM) out.pop();
   return out;
 }
 

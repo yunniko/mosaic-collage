@@ -1,5 +1,6 @@
 import type { Vec } from "../geometry/vec";
-import { shapeOutline } from "../shapes/outline";
+import { UnknownShapeError, shapeOutline } from "../shapes/outline";
+import { OutlineError } from "../shapes/repair";
 import { DEFAULT_BACKGROUND, DEFAULT_BOARD, DEFAULT_RELIEF, DEFAULT_TEXTURE_TRANSFORM, FALLBACK_COLOR, defaultTornEdge } from "./defaults";
 import {
   type AssetMeta,
@@ -164,8 +165,11 @@ function piece(v: unknown, warnings: string[]): Piece | null {
   let checked = s;
   try {
     shapeOutline(s);
-  } catch {
-    warnings.push(`The shape of "${name}" could not be cut; it was replaced by a rectangle.`);
+  } catch (e) {
+    if (!(e instanceof OutlineError || e instanceof UnknownShapeError)) throw e;
+    // A shape this version doesn't know (a file from a newer one) or can't cut still loads, as a stand-in rectangle.
+    const reason = e instanceof UnknownShapeError ? "uses a shape this version doesn't have" : "could not be cut";
+    warnings.push(`The shape of "${name}" ${reason}; it was replaced by a rectangle.`);
     checked = { kind: "predefined", shapeId: "rectangle", params: {} };
   }
   return {

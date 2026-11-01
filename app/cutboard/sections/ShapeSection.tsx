@@ -8,21 +8,21 @@ import { STABILIZATION } from "@/lib/shapes/hand";
 import { defaultParams, sanitizeParams } from "@/lib/shapes/params";
 import { PREDEFINED_SHAPES, findPredefinedShape } from "@/lib/shapes/predefined";
 import { ParamField, Section, SelectField } from "../../components/controls";
-import { store, useAppState } from "../../state/store";
+import { store, useCutting } from "../../state/store";
 import type { SectionProps } from "../PieceEditor";
 
 type Source = ShapeSource["kind"];
 type Fields<K extends Source> = {
   shape: Extract<ShapeSource, { kind: K }>;
   disabled: boolean;
-  onChange: (s: ShapeSource, key: string) => void;
+  onChange: (s: ShapeSource, key: string | null) => void;
 };
 
 export function ShapeSection({ piece, disabled, onChange }: SectionProps) {
   const t = useTranslations();
-  const cutting = useAppState((s) => s.cuttingPieceId === piece.id);
+  const cutting = useCutting();
   const shape = piece.shape;
-  const setShape = (next: ShapeSource, key: string) => onChange({ ...piece, shape: next }, `shape:${key}`);
+  const setShape = (next: ShapeSource, key: string | null) => onChange({ ...piece, shape: next }, key && `shape:${key}`);
   const startCut = () => store.set({ cuttingPieceId: piece.id });
 
   const switchTo = (kind: Source) => {
@@ -56,9 +56,9 @@ export function ShapeSection({ piece, disabled, onChange }: SectionProps) {
       {shape.kind === "predefined" ? <PredefinedFields shape={shape} disabled={disabled} onChange={setShape} /> : null}
       {shape.kind === "generated" ? <GeneratedFields shape={shape} disabled={disabled} onChange={setShape} /> : null}
       {shape.kind === "hand" ? <HandFields shape={shape} disabled={disabled} onChange={setShape} /> : null}
-      {!disabled && (shape.kind === "hand" || cutting) ? (
-        <button type="button" className="btn self-start" onClick={startCut} disabled={cutting} data-testid="cut-again">
-          {shape.kind === "hand" ? t("cut.again") : t("cut.start")}
+      {shape.kind === "hand" && !cutting && !disabled ? (
+        <button type="button" className="btn self-start" onClick={startCut} data-testid="cut-again">
+          {t("cut.again")}
         </button>
       ) : null}
     </Section>
@@ -125,7 +125,7 @@ function GeneratedFields(props: Fields<"generated">) {
         type="button"
         className="btn self-start"
         disabled={props.disabled}
-        onClick={() => props.onChange({ ...props.shape, seed: randomSeed() }, `seed:${Math.random()}`)}
+        onClick={() => props.onChange({ ...props.shape, seed: randomSeed() }, null)}
         data-testid="reroll-seed"
       >
         {t("editor.reroll")}

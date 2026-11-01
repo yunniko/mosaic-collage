@@ -1,7 +1,7 @@
 import type { Pose } from "../geometry/pose";
 import { newId } from "./defaults";
 import type { AssetMeta, Background, BoardSettings, MosaicDocument, Piece, Placement } from "./types";
-import { pieceOutline } from "../shapes/outline";
+import { assertPieceCuts } from "../shapes/outline";
 
 /** An operation the document refuses, with the reason the interface explains to the user. */
 export class DocumentError extends Error {
@@ -32,7 +32,7 @@ export const placementCount = (doc: MosaicDocument, pieceId: string) => doc.plac
 
 /** Adds a piece. Its outline is built first, so a piece that can't be cut is refused with an `OutlineError`. */
 export function addPiece(doc: MosaicDocument, piece: Piece): MosaicDocument {
-  pieceOutline(piece);
+  assertPieceCuts(piece);
   return { ...doc, pieces: [...doc.pieces, piece] };
 }
 
@@ -43,8 +43,7 @@ export function addPiece(doc: MosaicDocument, piece: Piece): MosaicDocument {
 export function updatePiece(doc: MosaicDocument, piece: Piece): MosaicDocument {
   getPiece(doc, piece.id);
   if (isPiecePlaced(doc, piece.id)) throw new DocumentError("piece-placed", piece.id);
-  // Builds (and caches) the outline: a shape that can't make a piece is refused here, before it reaches the document.
-  pieceOutline(piece);
+  assertPieceCuts(piece);
   return { ...doc, pieces: doc.pieces.map((p) => (p.id === piece.id ? piece : p)) };
 }
 

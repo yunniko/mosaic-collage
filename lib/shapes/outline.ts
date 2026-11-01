@@ -14,13 +14,20 @@ export class UnknownShapeError extends Error {
   }
 }
 
+const shapeCache = new WeakMap<ShapeSource, Polygon>();
+
 /**
  * The cut outline of a shape source, centred on its centroid, in mm. Throws an `OutlineError` if the source can't make
- * a valid piece (a hand cut that splits, an outline that crosses itself or is too small).
+ * a valid piece (a hand cut that splits, an outline that crosses itself or is too small). Cached per shape object, so
+ * edits that keep a piece's shape (texture, name) don't rebuild it; shapes are replaced, never mutated.
  */
 export function shapeOutline(shape: ShapeSource): Polygon {
-  const outline = normalizeOutline(rawOutline(shape));
-  checkOutline(outline);
+  let outline = shapeCache.get(shape);
+  if (!outline) {
+    outline = normalizeOutline(rawOutline(shape));
+    checkOutline(outline);
+    shapeCache.set(shape, outline);
+  }
   return outline;
 }
 
@@ -43,11 +50,17 @@ function rawOutline(shape: ShapeSource): Polygon {
 
 const outlineCache = new WeakMap<Piece, Polygon>();
 
+/** Throws an `OutlineError` (or `UnknownShapeError`) unless the piece's shape can be cut. Primes the cache. */
+export function assertPieceCuts(piece: Piece): void {
+  pieceOutline(piece);
+}
+
 /**
  * The piece's final outline: the cut shape with its torn edge applied. This one outline is what is drawn and what
  * collides. Cached per piece object; pieces are replaced, never mutated, so the cache cannot go stale.
  */
 export function pieceOutline(piece: Piece): Polygon {
+  // Kept separate from the shape cache: M5's torn edge depends on the piece, not just its shape.
   let o = outlineCache.get(piece);
   if (!o) {
     o = shapeOutline(piece.shape);

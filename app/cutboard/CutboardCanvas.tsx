@@ -2,17 +2,17 @@
 
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { isPiecePlaced, updatePiece } from "@/lib/document/ops";
+import { updatePiece } from "@/lib/document/ops";
 import { type Bounds, polygonBounds } from "@/lib/geometry/polygon";
-import type { Vec } from "@/lib/geometry/vec";
-import { STABILIZATION } from "@/lib/shapes/hand";
+import { type Vec, distance } from "@/lib/geometry/vec";
+import { STABILIZATION, STROKE_MIN_STEP_MM } from "@/lib/shapes/hand";
 import { pieceOutline } from "@/lib/shapes/outline";
 import { type Camera, fitBounds, panBy, pinch, screenToWorld, wheelZoom } from "@/lib/view/camera";
 import { applyCamera, canvasPoint, dpr, prepareCanvas, useElementSize } from "../components/canvas-hooks";
 import { drawSpriteAtOrigin, getSprite } from "../render/sprites";
 import { drawCuttingMat } from "../render/surfaces";
 import { errorText } from "../state/errors";
-import { store, useAppState, useDoc } from "../state/store";
+import { store, useAppState, useCutting, useDoc } from "../state/store";
 
 /**
  * The selected piece on a cutting mat. Pan by dragging, zoom with the wheel or a pinch. In cut mode one pointer draws
@@ -26,8 +26,20 @@ export function CutboardCanvas() {
   const doc = useDoc();
   const selected = useAppState((s) => s.selectedPieceId);
   const piece = doc.pieces.find((p) => p.id === selected) ?? null;
-  const cutting = useAppState((s) => piece !== null && s.cuttingPieceId === piece.id) && !!piece && !isPiecePlaced(doc, piece.id);
-  const [stroke, setStroke] = useState<Vec[] | null>(null);
+  const cutting = useCutting();
+  // The stroke being drawn lives in a ref and is repainted at most once a frame, not copied into state per move.
+  const strokeRef = useRef<Vec[] | null>(null);
+  const [strokeFrame, setStrokeFrame] = useState(0);
+  const pendingFrame = useRef(0);
+  const showStroke = useCallback((points: Vec[] | null) => {
+    strokeRef.current = points;
+    if (pendingFrame.current) return;
+    pendingFrame.current = requestAnimationFrame(() => {
+      pendingFrame.current = 0;
+      setStrokeFrame((n) => n + 1);
+    });
+  }, []);
+  useEffect(() => () => cancelAnimationFrame(pendingFrame.current), []);
   const bounds: Bounds | null = useMemo(() => {
     if (!piece) return null;
     try {
@@ -59,9 +71,10 @@ export function CutboardCanvas() {
     if (!canvas || !width || !height) return;
     const ctx = prepareCanvas(canvas, width, height);
     drawCuttingMat(ctx, cam, width, height);
+    const stroke = strokeRef.current;
     if (piece && !(cutting && stroke)) drawPiece(ctx, piece, cam, width, height, cutting ? 0.3 : 1);
     if (stroke) drawStroke(ctx, stroke, cam, width, height);
-  }, [piece, cam, width, height, cutting, stroke]);
+  }, [piece, cam, width, height, cutting, strokeFrame]);
 
   // The handlers below are bound once per board size; they read the latest render through this ref.
   const live = useRef({ cam, piece, cutting });
@@ -70,9 +83,9 @@ export function CutboardCanvas() {
   }, [cam, piece, cutting]);
 
   const cancelCut = useCallback(() => {
-    setStroke(null);
+    showStroke(null);
     store.set({ cuttingPieceId: null });
-  }, []);
+  }, [showStroke]);
   useEffect(() => {
     if (!cutting) return;
     const key = (e: KeyboardEvent) => {
@@ -84,7 +97,7 @@ export function CutboardCanvas() {
 
   const finishCut = useCallback(
     (points: Vec[]) => {
-      setStroke(null);
+      showStroke(null);
       const current = live.current.piece;
       if (!current) return;
       const stabilization = current.shape.kind === "hand" ? current.shape.stabilization : STABILIZATION.default;
@@ -96,10 +109,10 @@ export function CutboardCanvas() {
       // A refused cut keeps cut mode on, so the user can simply draw again.
       if (ok) store.set({ cuttingPieceId: null });
     },
-    [t]
+    [t, showStroke]
   );
 
-  useBoardPointers(canvasRef, width, height, setCam, live, setStroke, finishCut);
+  useBoardPointers(canvasRef, { width, height, setCam, live, showStroke, finishCut });
 
   return (
     <div ref={wrapRef} className="absolute inset-0">
@@ -160,7 +173,7 @@ function drawStroke(ctx: CanvasRenderingContext2D, stroke: Vec[], cam: Camera, w
   ctx.strokeStyle = "#b4442f";
   ctx.beginPath();
   ctx.moveTo(stroke[0].x, stroke[0].y);
-  for (const p of stroke) ctx.lineTo(p.x, p.y);
+  for (let i = 1; i < stroke.length; i++) ctx.lineTo(stroke[i].x, stroke[i].y);
   ctx.stroke();
   ctx.setLineDash([6 / cam.zoom, 4 / cam.zoom]);
   ctx.beginPath();
@@ -179,13 +192,16 @@ const roundMm = (v: number) => Math.round(v * 100) / 100;
  */
 function useBoardPointers(
   ref: React.RefObject<HTMLCanvasElement | null>,
-  width: number,
-  height: number,
-  setCam: (f: (c: Camera) => Camera) => void,
-  live: React.RefObject<{ cam: Camera; cutting: boolean }>,
-  setStroke: (s: Vec[] | null) => void,
-  finishCut: (points: Vec[]) => void
+  opts: {
+    width: number;
+    height: number;
+    setCam: (f: (c: Camera) => Camera) => void;
+    live: React.RefObject<{ cam: Camera; cutting: boolean }>;
+    showStroke: (points: Vec[] | null) => void;
+    finishCut: (points: Vec[]) => void;
+  }
 ) {
+  const { width, height, setCam, live, showStroke, finishCut } = opts;
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
@@ -201,10 +217,10 @@ function useBoardPointers(
       pointers.set(e.pointerId, p);
       if (pointers.size > 1) {
         drawing = null;
-        setStroke(null);
+        showStroke(null);
       } else if (live.current.cutting && e.button === 0) {
         drawing = { pointerId: e.pointerId, points: [toWorld(p)] };
-        setStroke(drawing.points.slice());
+        showStroke(drawing.points);
       }
     };
     const move = (e: PointerEvent) => {
@@ -212,8 +228,10 @@ function useBoardPointers(
       if (!prev) return;
       const p = canvasPoint(canvas, e);
       if (drawing && drawing.pointerId === e.pointerId) {
-        drawing.points.push(toWorld(p));
-        setStroke(drawing.points.slice());
+        const w = toWorld(p);
+        // Points closer than the cutter's own minimum step add nothing but file size.
+        if (distance(w, drawing.points[drawing.points.length - 1]) > STROKE_MIN_STEP_MM) drawing.points.push(w);
+        showStroke(drawing.points);
       } else if (pointers.size === 1) setCam((c) => panBy(c, p.x - prev.x, p.y - prev.y));
       else if (pointers.size === 2) {
         // The finger that moved, against the one that stayed put.
@@ -228,7 +246,7 @@ function useBoardPointers(
         const points = drawing.points;
         drawing = null;
         if (e.type === "pointerup") finishCut(points);
-        else setStroke(null);
+        else showStroke(null);
       }
     };
     const wheel = (e: WheelEvent) => {
@@ -247,5 +265,5 @@ function useBoardPointers(
       canvas.removeEventListener("pointercancel", up);
       canvas.removeEventListener("wheel", wheel);
     };
-  }, [ref, width, height, setCam, live, setStroke, finishCut]);
+  }, [ref, width, height, setCam, live, showStroke, finishCut]);
 }

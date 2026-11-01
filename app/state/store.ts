@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from "react";
 import { createDocument } from "@/lib/document/defaults";
 import { type History, commit, createHistory, redo, replacePresent, undo } from "@/lib/document/history";
+import { isPiecePlaced } from "@/lib/document/ops";
 import type { AssetStore, MosaicDocument } from "@/lib/document/types";
 
 export type View = "cutboard" | "workboard";
@@ -55,6 +56,10 @@ class Store {
 
   set(patch: Partial<AppState>) {
     if ((Object.keys(patch) as (keyof AppState)[]).every((k) => this.state[k] === patch[k])) return;
+    // Cut mode belongs to the selected piece: selecting another (or none) ends it.
+    if ("selectedPieceId" in patch && patch.selectedPieceId !== this.state.selectedPieceId && !("cuttingPieceId" in patch)) {
+      patch = { ...patch, cuttingPieceId: null };
+    }
     this.state = { ...this.state, ...patch };
     for (const l of this.listeners) l();
   }
@@ -151,3 +156,11 @@ export function useAppState<T>(select: (s: AppState) => T): T {
 }
 
 export const useDoc = () => useAppState((s) => s.history.present);
+
+/** Whether the cutboard is in cut mode: for the selected piece, while it exists and is not placed. */
+export const useCutting = () =>
+  useAppState((s) => {
+    const id = s.cuttingPieceId;
+    const doc = s.history.present;
+    return id !== null && id === s.selectedPieceId && doc.pieces.some((p) => p.id === id) && !isPiecePlaced(doc, id);
+  });

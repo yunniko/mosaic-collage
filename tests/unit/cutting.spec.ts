@@ -5,7 +5,7 @@ import { SHAPE_GENERATORS } from "@/lib/shapes/generators";
 import { cutOutline } from "@/lib/shapes/hand";
 import { shapeOutline } from "@/lib/shapes/outline";
 import { defaultParams } from "@/lib/shapes/params";
-import { MIN_PIECE_AREA, OutlineError, repairOutline } from "@/lib/shapes/repair";
+import { MIN_PIECE_AREA, OutlineError, checkOutline, repairOutline } from "@/lib/shapes/repair";
 
 /** Each parameter at its minimum, default and maximum, one parameter varied at a time. */
 function paramCases(gen: (typeof SHAPE_GENERATORS)[number]) {
@@ -125,13 +125,13 @@ describe("outline repair", () => {
     expect(area(repairOutline(sq))).toBeCloseTo(100);
   });
 
-  it("refuses a predefined-style outline that crosses itself when checked", () => {
+  it("reports a crossing outline as not simple when only checked", () => {
     const crossing = [
       { x: 0, y: 0 },
       { x: 10, y: 10 },
       { x: 10, y: 0 },
       { x: 0, y: 10 },
     ];
-    expect(problemOf(() => repairOutline(crossing))).toBe("splits");
+    expect(problemOf(() => checkOutline(crossing))).toBe("not-simple");
   });
 });

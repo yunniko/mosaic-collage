@@ -131,7 +131,6 @@
     "outline-not-simple": "That outline crosses itself. Draw it as one loop."
   },
   "cut": {
-    "start": "Draw a cut",
     "again": "Cut again",
     "hint": "Draw the outline in one stroke. Wheel or two fingers move the view; Esc cancels.",
     "cancel": "Cancel"

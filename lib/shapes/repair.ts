@@ -23,8 +23,9 @@ export class OutlineError extends Error {
 /** Throws an `OutlineError` unless the outline is a simple polygon of at least `MIN_PIECE_AREA`. */
 export function checkOutline(poly: readonly Vec[]): void {
   if (poly.length < 3) throw new OutlineError("too-few-points");
-  if (area(poly) < MIN_PIECE_AREA) throw new OutlineError("too-small");
+  // Simplicity first: a crossing outline's signed area can cancel out, which would misreport it as too small.
   if (!isSimplePolygon(poly)) throw new OutlineError("not-simple");
+  if (area(poly) < MIN_PIECE_AREA) throw new OutlineError("too-small");
 }
 
 /**
@@ -34,6 +35,10 @@ export function checkOutline(poly: readonly Vec[]): void {
  */
 export function repairOutline(poly: readonly Vec[]): Polygon {
   if (poly.length < 3) throw new OutlineError("too-few-points");
+  if (isSimplePolygon(poly)) {
+    if (area(poly) < MIN_PIECE_AREA) throw new OutlineError("too-small");
+    return poly.slice();
+  }
   const parts = polygonClipping.union([[poly.map((p) => [p.x, p.y] as [number, number])]]);
   if (!parts.length) throw new OutlineError("too-small");
   const rings = parts.map((part) => {
