@@ -8,6 +8,7 @@ import type { AssetMeta, Piece, TextureSource, TextureTransform } from "@/lib/do
 import { randomSeed } from "@/lib/random";
 import { defaultParams, sanitizeParams } from "@/lib/shapes/params";
 import { TEXTURE_GENERATORS, findTextureGenerator } from "@/lib/textures/generators";
+import type { TextureGenerator } from "@/lib/textures/generators/registry";
 import { ColorField, NumberField, ParamField, Section, SelectField } from "../../components/controls";
 import { pdfPageCount } from "../../render/texture-images";
 import { errorText } from "../../state/errors";
@@ -22,6 +23,9 @@ type Choice = "plain" | "generated" | "file";
 
 const RAD = Math.PI / 180;
 
+/** A generator's own parameters and the colours it was designed in. */
+const generatedDefaults = (gen: TextureGenerator) => ({ generatorId: gen.id, params: defaultParams(gen.params), colors: [...gen.colors] });
+
 export function TextureSection({ piece, disabled, onChange }: SectionProps) {
   const t = useTranslations();
   const tex = piece.texture;
@@ -31,11 +35,7 @@ export function TextureSection({ piece, disabled, onChange }: SectionProps) {
   const choose = (c: Choice) => {
     if (c === "file") return fileRef.current?.click();
     if (c === "plain") return setTexture({ kind: "plain", color: tex.kind === "generated" ? tex.colors[0] : "#c8553d" }, null);
-    const gen = TEXTURE_GENERATORS[0];
-    setTexture(
-      { kind: "generated", generatorId: gen.id, params: defaultParams(gen.params), colors: [...gen.colors], seed: randomSeed() },
-      null
-    );
+    setTexture({ kind: "generated", ...generatedDefaults(TEXTURE_GENERATORS[0]), seed: randomSeed() }, null);
   };
 
   const upload = async (file: File) => {
@@ -123,9 +123,8 @@ function GeneratedFields({ texture, disabled, onChange }: Fields<"generated">) {
         options={TEXTURE_GENERATORS.map((g) => ({ value: g.id, label: t(`textures.${g.label}`) }))}
         disabled={disabled}
         onChange={(id) => {
-          const next = findTextureGenerator(id)!;
-          // Each texture comes with the colours it was designed in; the seed is kept, so only the kind changes.
-          onChange({ ...texture, generatorId: id, params: defaultParams(next.params), colors: [...next.colors] }, null);
+          // The seed is kept, so only the kind changes.
+          onChange({ ...texture, ...generatedDefaults(findTextureGenerator(id)!) }, null);
         }}
         testId="texture-generator"
       />
@@ -197,15 +196,15 @@ function usePdfPages(assetId: string | null): number | null {
   const bytes = useAppState((s) => (assetId ? s.assets.get(assetId) : undefined));
   const [count, setCount] = useState<{ bytes: Uint8Array; pages: number } | null>(null);
   useEffect(() => {
-    if (!bytes) return;
+    if (!bytes || !assetId) return;
     let live = true;
-    pdfPageCount(bytes)
+    pdfPageCount(assetId)
       .then((pages) => live && setCount({ bytes, pages }))
       .catch(() => live && setCount({ bytes, pages: 1 }));
     return () => {
       live = false;
     };
-  }, [bytes]);
+  }, [assetId, bytes]);
   return count && count.bytes === bytes ? count.pages : null;
 }
 

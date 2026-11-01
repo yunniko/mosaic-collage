@@ -5,6 +5,12 @@ import { BLEND_MODES, type BlendMode, type ColorLayer, MAX_COLOR_LAYERS } from "
 import { ColorField, NumberField, Section, SelectField } from "../../components/controls";
 import type { SectionProps } from "../PieceEditor";
 
+/** The layers the add buttons append, as they start. */
+const NEW_LAYERS: { id: string; label: string; layer: ColorLayer }[] = [
+  { id: "add-tint", label: "editor.addTint", layer: { kind: "tint", color: "#3d6fc8", mode: "multiply", opacity: 1 } },
+  { id: "add-hsl", label: "editor.addHsl", layer: { kind: "hsl", hue: 0, saturation: 0, lightness: 0 } },
+];
+
 /** Colour layers over the texture, applied top to bottom: tints in a blend mode, and hue/saturation/lightness shifts. */
 export function ColorSection({ piece, disabled, onChange }: SectionProps) {
   const t = useTranslations();
@@ -81,51 +87,37 @@ export function ColorSection({ piece, disabled, onChange }: SectionProps) {
                 onChange={(hue) => update(i, { ...layer, hue }, "hue")}
                 testId={`hsl-hue-${i}`}
               />
-              <NumberField
-                label={t("editor.saturation")}
-                value={Math.round(layer.saturation * 100)}
-                min={-100}
-                max={100}
-                step={1}
-                unit={t("units.percent")}
-                disabled={disabled}
-                onChange={(v) => update(i, { ...layer, saturation: v / 100 }, "saturation")}
-                testId={`hsl-saturation-${i}`}
-              />
-              <NumberField
-                label={t("editor.lightness")}
-                value={Math.round(layer.lightness * 100)}
-                min={-100}
-                max={100}
-                step={1}
-                unit={t("units.percent")}
-                disabled={disabled}
-                onChange={(v) => update(i, { ...layer, lightness: v / 100 }, "lightness")}
-                testId={`hsl-lightness-${i}`}
-              />
+              {(["saturation", "lightness"] as const).map((key) => (
+                <NumberField
+                  key={key}
+                  label={t(`editor.${key}`)}
+                  value={Math.round(layer[key] * 100)}
+                  min={-100}
+                  max={100}
+                  step={1}
+                  unit={t("units.percent")}
+                  disabled={disabled}
+                  onChange={(v) => update(i, { ...layer, [key]: v / 100 }, key)}
+                  testId={`hsl-${key}-${i}`}
+                />
+              ))}
             </>
           )}
         </div>
       ))}
       <div className="flex gap-2">
-        <button
-          type="button"
-          className="btn"
-          disabled={disabled || full}
-          onClick={() => set([...layers, { kind: "tint", color: "#3d6fc8", mode: "multiply", opacity: 1 }], null)}
-          data-testid="add-tint"
-        >
-          {t("editor.addTint")}
-        </button>
-        <button
-          type="button"
-          className="btn"
-          disabled={disabled || full}
-          onClick={() => set([...layers, { kind: "hsl", hue: 0, saturation: 0, lightness: 0 }], null)}
-          data-testid="add-hsl"
-        >
-          {t("editor.addHsl")}
-        </button>
+        {NEW_LAYERS.map(({ id, label, layer }) => (
+          <button
+            key={id}
+            type="button"
+            className="btn"
+            disabled={disabled || full}
+            onClick={() => set([...layers, layer], null)}
+            data-testid={id}
+          >
+            {t(label)}
+          </button>
+        ))}
       </div>
     </Section>
   );

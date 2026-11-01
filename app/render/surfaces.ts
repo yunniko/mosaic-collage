@@ -2,6 +2,7 @@
 
 import { Noise2D } from "@/lib/textures/noise";
 import { type Camera, screenToWorld } from "@/lib/view/camera";
+import { createCanvas2d } from "./canvas";
 
 let woodTile: HTMLCanvasElement | null = null;
 
@@ -9,9 +10,7 @@ let woodTile: HTMLCanvasElement | null = null;
 function getWoodTile(): HTMLCanvasElement {
   if (woodTile) return woodTile;
   const size = 512;
-  const c = document.createElement("canvas");
-  c.width = c.height = size;
-  const ctx = c.getContext("2d")!;
+  const { canvas: c, ctx } = createCanvas2d(size, size);
   const img = ctx.createImageData(size, size);
   const noise = new Noise2D(7);
   const light = [196, 154, 108];

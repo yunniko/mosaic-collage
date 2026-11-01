@@ -3,6 +3,8 @@
 import type { Piece } from "@/lib/document/types";
 import { type PieceSprite, renderPiece } from "@/lib/render/piece";
 import { pieceOutline } from "@/lib/shapes/outline";
+import { store, useAppState } from "../state/store";
+import { createCanvas2d } from "./canvas";
 import { lookupTextureImage } from "./texture-images";
 
 /** A rendered piece uploaded to a canvas; the RGBA buffer is not kept. Origin and scale as in `PieceSprite`. */
@@ -22,13 +24,12 @@ export function scaleStep(pxPerMm: number): number {
   return Math.min(MAX_STEP, Math.max(MIN_STEP, s));
 }
 
-const cache = new WeakMap<Piece, Map<number, CanvasSprite>>();
+/** A cached sprite; a stand-in drawn while an image decodes remembers the `textureVersion` it was drawn under. */
+type Cached = CanvasSprite & { pendingAt: number | null };
+const cache = new WeakMap<Piece, Map<number, Cached>>();
 
 function spriteToCanvas(sprite: PieceSprite): HTMLCanvasElement {
-  const canvas = document.createElement("canvas");
-  canvas.width = sprite.image.width;
-  canvas.height = sprite.image.height;
-  const ctx = canvas.getContext("2d")!;
+  const { canvas, ctx } = createCanvas2d(sprite.image.width, sprite.image.height);
   ctx.putImageData(new ImageData(sprite.image.data as Uint8ClampedArray<ArrayBuffer>, sprite.image.width, sprite.image.height), 0, 0);
   return canvas;
 }
@@ -36,7 +37,7 @@ function spriteToCanvas(sprite: PieceSprite): HTMLCanvasElement {
 /**
  * The piece rendered at the step for `pxPerMm`. Pieces are replaced rather than mutated, and placed pieces never
  * change (D002), so a cached sprite is valid for as long as its piece object lives. A sprite drawn while its image
- * texture is still decoding is a stand-in and is not cached; `textureVersion` tells the boards to ask again.
+ * texture is still decoding is a stand-in, kept only until `textureVersion` moves on (a decode settled).
  */
 export function getSprite(piece: Piece, pxPerMm: number): CanvasSprite {
   const step = scaleStep(pxPerMm);
@@ -45,14 +46,24 @@ export function getSprite(piece: Piece, pxPerMm: number): CanvasSprite {
     byStep = new Map();
     cache.set(piece, byStep);
   }
+  const version = store.getState().textureVersion;
   let s = byStep.get(step);
-  if (!s) {
+  if (!s || (s.pendingAt !== null && s.pendingAt !== version)) {
     const sprite = renderPiece(piece, pieceOutline(piece), step, lookupTextureImage);
-    s = { canvas: spriteToCanvas(sprite), scale: sprite.scale, originX: sprite.originX, originY: sprite.originY };
-    if (!sprite.pending) byStep.set(step, s);
+    s = {
+      canvas: spriteToCanvas(sprite),
+      scale: sprite.scale,
+      originX: sprite.originX,
+      originY: sprite.originY,
+      pendingAt: sprite.pending ? version : null,
+    };
+    byStep.set(step, s);
   }
   return s;
 }
+
+/** Changes whenever a texture decode settles: a component drawing sprites lists it in its effect's dependencies. */
+export const useTextureVersion = () => useAppState((s) => s.textureVersion);
 
 /** Draws a sprite with its local origin at the current transform's origin, sized in mm. */
 export function drawSpriteAtOrigin(ctx: CanvasRenderingContext2D, s: CanvasSprite) {

@@ -1,4 +1,4 @@
-import { createRng } from "../../random";
+import { createRng, mixSeed } from "../../random";
 import { Noise2D } from "../noise";
 import { type TextureGenerator, applyContrast, clamp01, contrastParam } from "./registry";
 
@@ -20,10 +20,10 @@ export const paper: TextureGenerator = {
   colors: ["#cdbf9f", "#f3ecdc", "#fffaf0"],
   field(p, seed) {
     const base = new Noise2D(seed);
-    const rng = createRng(seed ^ 0x9e3779b9);
+    const rng = createRng(mixSeed(seed, 1));
     const families = Array.from({ length: FAMILIES }, (_, k) => {
       const a = rng() * Math.PI;
-      return { cos: Math.cos(a), sin: Math.sin(a), noise: new Noise2D(seed + 101 * (k + 1)) };
+      return { cos: Math.cos(a), sin: Math.sin(a), noise: new Noise2D(mixSeed(seed, 2, k)) };
     });
     const length = p.size;
     const width = Math.max(0.15, length * 0.04);

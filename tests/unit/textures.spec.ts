@@ -9,6 +9,7 @@ import { defaultParams } from "@/lib/shapes/params";
 import { TEXTURE_GENERATORS } from "@/lib/textures/generators";
 import { ramp, textureImageKey, textureSampling } from "@/lib/textures/sample";
 
+const NO_IMAGES = () => undefined;
 const close = (a: Rgb, b: Rgb, digits = 6) => a.forEach((v, i) => expect(v).toBeCloseTo(b[i], digits));
 const BOUNDS = { minX: -20, minY: -10, maxX: 20, maxY: 10 };
 const IDENTITY = { offsetX: 0, offsetY: 0, scale: 1, rotation: 0 };
@@ -148,12 +149,12 @@ describe("texture sampling", () => {
   const generated = { kind: "generated" as const, generatorId: gen.id, params: defaultParams(gen.params), colors: gen.colors, seed: 7 };
 
   it("shifts, scales and turns a generated texture about the piece's bounds centre", () => {
-    const base = textureSampling(generated, IDENTITY, BOUNDS).sample;
-    const shifted = textureSampling(generated, { ...IDENTITY, offsetX: 5, offsetY: -3 }, BOUNDS).sample;
+    const base = textureSampling(generated, IDENTITY, BOUNDS, NO_IMAGES).sample;
+    const shifted = textureSampling(generated, { ...IDENTITY, offsetX: 5, offsetY: -3 }, BOUNDS, NO_IMAGES).sample;
     close(shifted(7, 1), base(2, 4));
-    const scaled = textureSampling(generated, { ...IDENTITY, scale: 2 }, BOUNDS).sample;
+    const scaled = textureSampling(generated, { ...IDENTITY, scale: 2 }, BOUNDS, NO_IMAGES).sample;
     close(scaled(6, -4), base(3, -2));
-    const turned = textureSampling(generated, { ...IDENTITY, rotation: Math.PI / 2 }, BOUNDS).sample;
+    const turned = textureSampling(generated, { ...IDENTITY, rotation: Math.PI / 2 }, BOUNDS, NO_IMAGES).sample;
     // A texture turned 90° shows at (0, 3) what was at (3, 0).
     close(turned(0, 3), base(3, 0));
   });
@@ -164,7 +165,7 @@ describe("texture sampling", () => {
     for (let i = 0; i < 16; i++) img.data.set(i % 4 < 2 ? [0, 0, 0, 255] : [255, 255, 255, 255], i * 4);
     const tex = { kind: "image" as const, assetId: "a" };
     const s = textureSampling(tex, IDENTITY, BOUNDS, (k) => (k === "a" ? img : undefined));
-    expect(s.pending).toBe(false);
+    expect(s.kind).toBe("image");
     // The 40 x 20 mm bounds: 4 px across 40 mm is 0.1 px/mm (cover takes the smaller ratio), so 10 mm per pixel.
     close(s.sample(-15, 0), [0, 0, 0]);
     close(s.sample(15, 0), [1, 1, 1]);
@@ -175,9 +176,9 @@ describe("texture sampling", () => {
     const tex = { kind: "pdf" as const, assetId: "doc", page: 3 };
     expect(textureImageKey(tex)).toBe("doc#3");
     close(textureSampling(tex, IDENTITY, BOUNDS, () => img).sample(0, 0), [1, 1, 1]);
-    const waiting = textureSampling(tex, IDENTITY, BOUNDS);
-    expect(waiting.pending).toBe(true);
-    expect(waiting.uniform).toBe(true);
+    expect(textureSampling(tex, IDENTITY, BOUNDS, NO_IMAGES)).toMatchObject({ kind: "flat", pending: true });
+    // A file that could not be decoded is drawn in the fallback colour and no longer waited for.
+    expect(textureSampling(tex, IDENTITY, BOUNDS, () => "failed")).toMatchObject({ kind: "flat", pending: false });
   });
 });
 
@@ -195,7 +196,7 @@ describe("renderPiece with textures", () => {
         seed: 1,
       },
     });
-    const s = renderPiece(piece, pieceOutline(piece), 2);
+    const s = renderPiece(piece, pieceOutline(piece), 2, NO_IMAGES);
     const shades = new Set<number>();
     for (let i = 0; i < s.image.data.length; i += 4) if (s.image.data[i + 3] === 255) shades.add(s.image.data[i]);
     expect(shades.has(0) && shades.has(255)).toBe(true);
@@ -205,7 +206,8 @@ describe("renderPiece with textures", () => {
     const inverted = renderPiece(
       { ...piece, colors: [{ kind: "tint", color: "#ffffff", mode: "difference", opacity: 1 }] },
       pieceOutline(piece),
-      2
+      2,
+      NO_IMAGES
     );
     for (let i = 0; i < s.image.data.length; i += 4)
       if (s.image.data[i + 3] === 255) expect(inverted.image.data[i]).toBe(255 - s.image.data[i]);
@@ -213,7 +215,7 @@ describe("renderPiece with textures", () => {
 
   it("marks a sprite pending while its image is not decoded", () => {
     const piece = square({ texture: { kind: "image", assetId: "x" } });
-    expect(renderPiece(piece, pieceOutline(piece), 1).pending).toBe(true);
+    expect(renderPiece(piece, pieceOutline(piece), 1, NO_IMAGES).pending).toBe(true);
     expect(renderPiece(piece, pieceOutline(piece), 1, () => createImage(2, 2)).pending).toBe(false);
   });
 
@@ -225,7 +227,7 @@ describe("renderPiece with textures", () => {
       colors: [{ kind: "hsl", hue: 20, saturation: 0.2, lightness: 0 }],
     });
     const t0 = performance.now();
-    renderPiece(piece, pieceOutline(piece), 8);
+    renderPiece(piece, pieceOutline(piece), 8, NO_IMAGES);
     const ms = performance.now() - t0;
     console.log(`paper 480x480 px render: ${ms.toFixed(0)} ms`);
     expect(ms).toBeLessThan(2000);

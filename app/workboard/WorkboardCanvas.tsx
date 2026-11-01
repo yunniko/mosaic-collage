@@ -94,7 +94,7 @@ export function WorkboardCanvas() {
     drawArtworkBackground(ctx, doc, artworkBounds(doc, moving));
     ctx.restore();
 
-    const layer = staticLayer(layerRef, doc, cam, w, h, activeId);
+    const layer = staticLayer(layerRef, doc, cam, w, h, activeId, store.getState().textureVersion);
     ctx.drawImage(layer, 0, 0, w, h);
 
     ctx.save();
@@ -368,10 +368,10 @@ function staticLayer(
   cam: Camera,
   w: number,
   h: number,
-  exclude: string | null
+  exclude: string | null,
+  textureVersion: number
 ): HTMLCanvasElement {
   const cur = ref.current;
-  const { textureVersion } = store.getState();
   if (
     cur &&
     cur.doc === doc &&

@@ -1,11 +1,8 @@
+import { mixSeed } from "../../random";
 import { type TextureGenerator, clamp01 } from "./registry";
 
-/** A small integer hash to 0..1, so each thread gets its own slight shade. */
-function hash(a: number, b: number, seed: number): number {
-  let h = Math.imul(a, 374761393) ^ Math.imul(b, 668265263) ^ Math.imul(seed, 2246822519 | 0);
-  h = Math.imul(h ^ (h >>> 13), 1274126177);
-  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
-}
+/** A thread's slight shade, 0..1: each warp column and weft row gets its own. */
+const shadeOf = (axis: number, index: number, seed: number) => mixSeed(seed, axis, index) / 4294967296;
 
 /** Plain-weave cloth: warp and weft threads crossing over and under, each rounded across its width. */
 export const weave: TextureGenerator = {
@@ -26,7 +23,7 @@ export const weave: TextureGenerator = {
       // In a plain weave the warp (running along y) is on top where column + row is even.
       const warpOnTop = ((ix + iy) & 1) === 0;
       const round = Math.sin(Math.PI * (warpOnTop ? x - ix : y - iy));
-      const shade = warpOnTop ? hash(ix, 0, seed) : hash(0, iy, seed + 1);
+      const shade = warpOnTop ? shadeOf(0, ix, seed) : shadeOf(1, iy, seed);
       return clamp01(0.15 + 0.7 * round + (shade - 0.5) * irr * 0.5 - (warpOnTop ? 0 : 0.08));
     };
   },

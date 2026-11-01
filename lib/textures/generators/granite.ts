@@ -1,3 +1,4 @@
+import { mixSeed } from "../../random";
 import { Noise2D } from "../noise";
 import { type TextureGenerator, clamp01, sizeParam } from "./registry";
 
@@ -9,8 +10,8 @@ export const granite: TextureGenerator = {
   colors: ["#2b2b2e", "#8d8a86", "#efeae2"],
   field(p, seed) {
     const dark = new Noise2D(seed);
-    const light = new Noise2D(seed + 3);
-    const ground = new Noise2D(seed + 5);
+    const light = new Noise2D(mixSeed(seed, 1));
+    const ground = new Noise2D(mixSeed(seed, 2));
     // Higher density lowers the threshold, so more of the field counts as a grain.
     const th = 0.55 - (p.density / 100) * 0.45;
     const edge = 0.04;

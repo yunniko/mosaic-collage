@@ -1,3 +1,4 @@
+import { mixSeed } from "../../random";
 import { Noise2D } from "../noise";
 import { type TextureGenerator, clamp01 } from "./registry";
 
@@ -16,7 +17,7 @@ export const wood: TextureGenerator = {
   colors: ["#8a5a33", "#c4955f", "#ddb682"],
   field(p, seed) {
     const noise = new Noise2D(seed);
-    const fine = new Noise2D(seed + 7);
+    const fine = new Noise2D(mixSeed(seed, 1));
     const warp = (p.warp / 100) * 3;
     const grain = p.grain / 100;
     return (u, v) => {

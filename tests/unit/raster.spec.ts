@@ -53,7 +53,7 @@ describe("rasterize", () => {
 describe("renderPiece", () => {
   it("renders a plain square with the origin at its centre", () => {
     const piece = defaultPiece(0);
-    const s = renderPiece(piece, pieceOutline(piece), 2);
+    const s = renderPiece(piece, pieceOutline(piece), 2, () => undefined);
     expect(s.image.width).toBe(84);
     expect(s.originX).toBeCloseTo(42);
     const i = (Math.round(s.originY) * s.image.width + Math.round(s.originX)) * 4;

@@ -9,6 +9,12 @@ import { parseHex } from "./image";
  */
 export type Rgb = [number, number, number];
 
+/** A `#rrggbb` colour as 0..1 channels. */
+export const hexToRgb = (hex: string): Rgb => parseHex(hex).map((v) => v / 255) as Rgb;
+
+/** `a` moved toward `b` by `t` (0 gives a, 1 gives b), per channel. */
+export const lerpRgb = (a: Rgb, b: Rgb, t: number): Rgb => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+
 type Separable = (cb: number, cs: number) => number;
 
 const hardLight: Separable = (cb, cs) => (cs <= 0.5 ? cb * 2 * cs : screen(cb, 2 * cs - 1));
@@ -115,7 +121,7 @@ export type PreparedLayer =
   { kind: "tint"; color: Rgb; mode: BlendMode; opacity: number } | { kind: "hsl"; hue: number; saturation: number; lightness: number };
 
 export function prepareLayers(layers: readonly ColorLayer[]): PreparedLayer[] {
-  return layers.map((l) => (l.kind === "tint" ? { ...l, color: parseHex(l.color).map((v) => v / 255) as Rgb } : l));
+  return layers.map((l) => (l.kind === "tint" ? { ...l, color: hexToRgb(l.color) } : l));
 }
 
 /** The colour layers applied in order over the texture colour `c`. */
@@ -126,9 +132,7 @@ export function applyLayers(c: Rgb, layers: readonly PreparedLayer[]): Rgb {
       out = adjustHsl(out, l.hue, l.saturation, l.lightness);
       continue;
     }
-    const b = blend(l.mode, out, l.color);
-    const a = l.opacity;
-    out = [out[0] + (b[0] - out[0]) * a, out[1] + (b[1] - out[1]) * a, out[2] + (b[2] - out[2]) * a];
+    out = lerpRgb(out, blend(l.mode, out, l.color), l.opacity);
   }
   return out;
 }
