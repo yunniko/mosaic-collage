@@ -41,7 +41,32 @@ export function reliefProfile(r: Relief): ((d: number) => number) | null {
  * normals by central differences, Lambertian shading relative to flat paper, so flat areas keep their colour.
  * `inside` is the distance to the edge in pixels; `scale` is px per mm.
  */
-export function shadeRelief(image: RgbaImage, mask: Mask, inside: Float32Array, scale: number, r: Relief): void {
+/** The lightness of each pixel inside the piece, 0..255: what the texture bump raises (0 outside). */
+export function surfaceLightness(image: RgbaImage, mask: Mask): Float32Array {
+  const { data } = image;
+  const out = new Float32Array(mask.data.length);
+  for (let i = 0; i < out.length; i++) {
+    if (mask.data[i] <= 0) continue;
+    const k = i * 4;
+    out[i] = luma(data[k], data[k + 1], data[k + 2]);
+  }
+  return out;
+}
+
+/**
+ * `turn` is how far the piece is rotated on the board, radians: the light stays fixed on the board, so in the piece's
+ * own frame it comes from `lightAngle − turn` (D013). `lightness` is the surface's `surfaceLightness`, taken before
+ * the torn edge's band changed its colours, so the band does not read as a bump.
+ */
+export function shadeRelief(
+  image: RgbaImage,
+  mask: Mask,
+  inside: Float32Array,
+  scale: number,
+  r: Relief,
+  turn: number,
+  lightness: Float32Array | null
+): void {
   const profile = reliefProfile(r);
   if (!profile && r.textureBump <= 0) return;
   const { width: w, height: h, data } = image;
@@ -52,16 +77,12 @@ export function shadeRelief(image: RgbaImage, mask: Mask, inside: Float32Array, 
     height = blurInside(height, mask, Math.round(SLOPE_SMOOTHING * r.size * scale));
   }
   const bump = (r.textureBump * BUMP_HEIGHT) / 255;
-  if (bump > 0) {
-    for (let i = 0; i < w * h; i++) {
-      if (m[i] <= 0) continue;
-      const k = i * 4;
-      height[i] += bump * (luma(data[k], data[k + 1], data[k + 2]) - 127.5);
-    }
+  if (bump > 0 && lightness) {
+    for (let i = 0; i < w * h; i++) if (m[i] > 0) height[i] += bump * (lightness[i] - 127.5);
   }
 
   const alt = (r.lightAltitude * Math.PI) / 180;
-  const ang = (r.lightAngle * Math.PI) / 180;
+  const ang = (r.lightAngle * Math.PI) / 180 - turn;
   const lx = Math.cos(alt) * Math.cos(ang);
   const ly = Math.cos(alt) * Math.sin(ang);
   const lz = Math.sin(alt);

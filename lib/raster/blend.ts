@@ -12,10 +12,10 @@ export type Rgb = [number, number, number];
 /** A `#rrggbb` colour as 0..1 channels. */
 export const hexToRgb = (hex: string): Rgb => parseHex(hex).map((v) => v / 255) as Rgb;
 
-/** `a` moved toward `b` by `t` (0 gives a, 1 gives b), per channel. */
 /** Relative luminance of a colour (Rec. 709 weights), on the colour's own 0..1 or 0..255 scale. */
 export const luma = (r: number, g: number, b: number): number => 0.2126 * r + 0.7152 * g + 0.0722 * b;
 
+/** `a` moved toward `b` by `t` (0 gives a, 1 gives b), per channel. */
 export const lerpRgb = (a: Rgb, b: Rgb, t: number): Rgb => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 
 type Separable = (cb: number, cs: number) => number;

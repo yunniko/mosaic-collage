@@ -195,3 +195,24 @@ describe("rendering a torn piece", () => {
     expect(s.image.data[k]).toBeLessThan(60);
   });
 });
+
+describe("relief light", () => {
+  it("stays fixed on the board when the piece is turned (D013)", () => {
+    const piece: Piece = {
+      ...defaultPiece(0),
+      texture: { kind: "plain", color: "#808080" },
+      relief: { ...defaultPiece(0).relief, style: "bevel", size: 2, depth: 1, lightAngle: 0, lightAltitude: 30 },
+    };
+    const b = polygonBounds(shapeOutline(piece.shape));
+    const red = (turn: number, xMm: number, yMm: number) => {
+      const s = renderPiece(piece, 8, NO_IMAGES, turn);
+      return s.image.data[(Math.floor(yMm * 8 + s.originY) * s.image.width + Math.floor(xMm * 8 + s.originX)) * 4];
+    };
+    const cx = (b.minX + b.maxX) / 2;
+    const cy = (b.minY + b.maxY) / 2;
+    // Light from +x on the board: unturned, the piece's right edge is lit and its left edge in shade.
+    expect(red(0, b.maxX - 0.5, cy)).toBeGreaterThan(red(0, b.minX + 0.5, cy) + 30);
+    // A quarter turn clockwise brings the piece's top edge to face +x, so now that edge is lit.
+    expect(red(Math.PI / 2, cx, b.minY + 0.5)).toBeGreaterThan(red(Math.PI / 2, cx, b.maxY - 0.5) + 30);
+  });
+});

@@ -12,6 +12,8 @@ export interface SpriteJob {
   id: number;
   piece: Piece;
   step: number;
+  /** The piece's turn on its board, radians (D013). */
+  turn: number;
   imageKey: string | null;
   /** The decoded image for `imageKey`, sent only when the worker does not hold it yet. */
   image: RgbaImage | "failed" | undefined;
@@ -26,10 +28,10 @@ export interface SpriteResult {
 const images = new Map<string, RgbaImage | "failed">();
 
 self.onmessage = (e: MessageEvent<SpriteJob>) => {
-  const { id, piece, step, imageKey, image } = e.data;
+  const { id, piece, step, turn, imageKey, image } = e.data;
   if (imageKey && image !== undefined) images.set(imageKey, image);
   try {
-    const sprite = renderPiece(piece, step, (key) => images.get(key));
+    const sprite = renderPiece(piece, step, (key) => images.get(key), turn);
     self.postMessage({ id, sprite } satisfies SpriteResult, { transfer: [sprite.image.data.buffer] });
   } catch (err) {
     self.postMessage({ id, error: String(err) } satisfies SpriteResult);

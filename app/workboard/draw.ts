@@ -22,7 +22,7 @@ export function drawArtworkBackground(ctx: CanvasRenderingContext2D, doc: Mosaic
 
 /** One piece at a pose, with the board's drop shadow. The shadow is in screen space, so it falls the same way at any rotation. */
 export function drawPiece(ctx: CanvasRenderingContext2D, piece: Piece, pose: Pose, cam: Camera, shadow: number, lifted = false) {
-  const sprite = getSprite(piece, cam.zoom * dpr());
+  const sprite = getSprite(piece, cam.zoom * dpr(), pose.rotation);
   ctx.save();
   ctx.translate(pose.x, pose.y);
   ctx.rotate(pose.rotation);

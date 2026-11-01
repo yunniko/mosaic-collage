@@ -12,3 +12,4 @@
 - D010 — Textures are sampled per pixel in lib/; images and PDF pages are decoded once in the app — active
 - D011 — Torn edges are a fractal offset of the cut line; relief is a lit height field from the edge distance — active
 - D012 — Large sprites show a coarser step at once and are refined in a Web Worker — active
+- D013 — A relief's light stays fixed on the board; lit sprites are cached per 5° turn — active

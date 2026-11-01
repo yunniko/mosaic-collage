@@ -7,7 +7,7 @@ import { rasterizePolygon } from "../raster/rasterize";
 import { pieceOutline, pieceTear, shapeOutline } from "../shapes/outline";
 import { type ImageLookup, type TextureSampling, textureSampling } from "../textures/sample";
 import { TornEdgePainter } from "./edge";
-import { shadeRelief } from "./relief";
+import { shadeRelief, surfaceLightness } from "./relief";
 
 /** A rendered piece: its pixels, and where the piece's local origin (its centroid) falls in them. */
 export interface PieceSprite {
@@ -60,7 +60,7 @@ function pixelColor(tex: TextureSampling, layers: readonly PreparedLayer[]): (x:
  * a pure function of the piece (and the decoded images it names), so the same pixels come out in a unit test, on the
  * boards and in an export.
  */
-export function renderPiece(piece: Piece, requestedScale: number, images: ImageLookup): PieceSprite {
+export function renderPiece(piece: Piece, requestedScale: number, images: ImageLookup, turn = 0): PieceSprite {
   const tear = pieceTear(piece);
   const outline = pieceOutline(piece);
   const b = polygonBounds(outline);
@@ -102,8 +102,9 @@ export function renderPiece(piece: Piece, requestedScale: number, images: ImageL
     const painter = tear
       ? new TornEdgePainter(tear, frame, width, height, piece.edge.rimColor ? hexToRgb(piece.edge.rimColor) : null)
       : null;
+    const lightness = piece.relief.textureBump > 0 ? surfaceLightness(image, mask) : null;
     painter?.paintBand(image, mask, inside);
-    if (lit) shadeRelief(image, mask, inside, scale, piece.relief);
+    if (lit) shadeRelief(image, mask, inside, scale, piece.relief, turn, lightness);
     painter?.paintFibres(image, edgeDistance(mask, false), colorAt);
   }
   return { image, originX, originY, scale, pending: tex.kind === "flat" && tex.pending };

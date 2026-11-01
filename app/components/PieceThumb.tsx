@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import type { Piece } from "@/lib/document/types";
 import { polygonBounds } from "@/lib/geometry/polygon";
-import { pieceOutline } from "@/lib/shapes/outline";
+import { pieceOutline, pieceTear } from "@/lib/shapes/outline";
 import { drawSpriteAtOrigin, getSprite, useRenderVersion } from "../render/sprites";
 import { dpr, prepareCanvas } from "./canvas-hooks";
 
@@ -17,12 +17,15 @@ export function PieceThumb({ piece, size = 56 }: { piece: Piece; size?: number }
     const ctx = prepareCanvas(canvas, size, size);
     ctx.clearRect(0, 0, size, size);
     let b;
+    let reach;
     try {
       b = polygonBounds(pieceOutline(piece));
+      reach = pieceTear(piece)?.reach ?? 0;
     } catch {
       return;
     }
-    const k = (size - 6) / Math.max(b.maxX - b.minX, b.maxY - b.minY, 1);
+    // Fitted with the fibres that reach past the line, so a torn piece's fuzz is not cut off.
+    const k = (size - 6) / (Math.max(b.maxX - b.minX, b.maxY - b.minY, 1) + 2 * reach);
     const sprite = getSprite(piece, k * dpr());
     ctx.save();
     ctx.translate(size / 2 - ((b.minX + b.maxX) / 2) * k, size / 2 - ((b.minY + b.maxY) / 2) * k);
