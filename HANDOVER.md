@@ -1,12 +1,12 @@
 # mosaic-collage — Handover
-Last verified: 2026-11-01 at 1a75538
+Last verified: 2026-11-01 at d1ecf75
 
 A browser app for mosaics and paper collages. Pieces are made on a cutboard and placed on a
 workboard. Goal G-001 is in `GOALS.md`. Charter: `E:\CLAUDE\COMPANY\`.
 
 ## Current state
 
-G-001 milestones M1 (foundation) and M2 (shapes) are done. Code is public at `https://github.com/yunniko/mosaic-collage`.
+G-001 milestones M1 (foundation), M2 (shapes) and M3 (no-overlap placement) are done. Code is public at `https://github.com/yunniko/mosaic-collage`.
 CI on GitHub runs format, lint, typecheck, unit, then build and e2e (`npm run test:e2e` builds first, so it
 never tests a stale `out/`).
 
@@ -32,6 +32,12 @@ Works, verified in this session:
   - Delete; z-order to front, back, forward and backward; rotate by 15°.
   - Panning, pinch zoom, wheel zoom, and fit to view.
   - Keys: Delete, L, Esc, `[` `]`, R.
+  - **Overlap off** (board setting, with a margin in mm), for any outline including concave and hand-cut ones:
+    - a dragged piece stops at the margin of a neighbour; dragging on to a free spot jumps it there;
+    - with "Auto-rotate at contact" on, a stopped piece swings about the contact point toward the pointer;
+    - turns (wheel, second finger, R) stop at contact;
+    - a drop or tray placement that would crowd a piece moves to the nearest free spot, at the margin;
+    - a piece already overlapping when overlap is switched off is drawn red and moves freely until clear.
 - **Shared.**
   - Undo and redo. A slider drag counts as one step.
   - Save and open the `.mosaic` file (a zip of `mosaic.json` and `assets/`). Loading validates the file
@@ -41,12 +47,9 @@ Works, verified in this session:
 Not built yet, as planned in later milestones:
 - textures and colour;
 - relief and torn edges;
-- no-overlap placement;
 - background choice and export.
 
-The UI already shows the overlap and margin settings, but only overlap-allowed behaviour exists.
-
-Tests: unit 60/60 (Vitest); e2e 21/21 (Playwright: chromium 10, firefox 10, tablet touch 1).
+Tests: unit 74/74 (Vitest); e2e 28/28 (Playwright: chromium 13, firefox 13, tablet touch 2).
 
 ## How things fit together
 
@@ -70,6 +73,10 @@ Tests: unit 60/60 (Vitest); e2e 21/21 (Playwright: chromium 10, firefox 10, tabl
   - Pieces other than the one in hand are drawn into a cached static layer.
   - `lib/workboard/drag.ts` keeps the grab point under the pointer while the piece turns.
   - A tray drag reaches the board through `app/workboard/incoming.ts`, because the tray owns the pointer.
+  - No-overlap rules (D009) live in `lib/workboard/placement.ts`: `constrainMove`/`constrainTurn` for the live
+    drag, and `moveFree`/`placeFree`/`turnFree` for every committed move, so no control bypasses the margin.
+    Clearance between exact outlines is `lib/geometry/collision.ts` (edges bucketed in a grid per placed
+    outline, cached with it).
 - **Cut mode.** `cuttingPieceId` in the store, read through `useCutting()`; it ends when the selection
   changes. `app/cutboard/CutboardCanvas.tsx` draws the stroke and applies it on release.
 - **Camera.** Camera maths (pan, zoom, pinch, fit) is in `lib/view/camera.ts`, shared by both boards.
@@ -86,9 +93,9 @@ Tests: unit 60/60 (Vitest); e2e 21/21 (Playwright: chromium 10, firefox 10, tabl
 
 ## Next steps and open questions
 
-- M3 — No-overlap placement: margin offsets, collision for any outline (concave and hand-cut), stopping at
-  contact with auto-rotation, jumping into free space.
-- Then M4–M6 per `GOALS.md`. M6 includes the deploy to `mosaic.app.julienika.cz`.
+- M4 — Textures and colour: plain, generated (registry), image and PDF-page textures with offset, scale and
+  rotation; blend modes and HSL; the first bundled assets with assets/ATTRIBUTION.md (created in M4).
+- Then M5–M6 per `GOALS.md`. M6 includes the deploy to `mosaic.app.julienika.cz`.
 - No open questions for the Owner.
 
 ## Deploy log

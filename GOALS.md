@@ -63,7 +63,7 @@
   - Hand cutter with stabilisation.
   - Outline validation and repair.
   - Pieces lock once placed; "duplicate as new".
-- [ ] M3 — **No-overlap placement.**
+- [x] M3 — **No-overlap placement.**
   - Margin offsets and collision against any shape, concave and hand-cut included.
   - Stopping at contact, auto-rotation about the contact point, jumping into free space.
   - Wheel and two-finger rotation about the grab point.
@@ -86,6 +86,22 @@
     an nginx vhost and a TLS certificate through `julai-new-vhost`), checked live.
 
 **Progress log** (newest first):
+- 2026-11-01 — **M3 done** (d1ecf75). Built:
+  - exact-outline clearance with a per-outline edge grid (`lib/geometry/collision.ts`), checked against an
+    all-pairs reference on 300 generated cases;
+  - stop at the margin, jump to free space, auto-rotate swing about the contact point, turns stopped at
+    contact, crowded drops moved to the nearest free spot (D009);
+  - every committed move goes through `moveFree`/`placeFree`/`turnFree`.
+
+  Check-in:
+  - /simplify: allocation-free segment tests, `clear` carried by the drag instead of re-tested, adaptive
+    bisection, one home for the rule-respecting document ops.
+  - /code-review: 6 of 10 fixed (turn-sweep step bound, drop search cost and pull-back, clearance guard,
+    explicit drag contract, D009 template). 4 rejected with reasons in the milestone note.
+  - Verified: unit 74/74; e2e 28/28; tsc, eslint, prettier clean; exercised in Chrome, no console errors.
+  - Measured: 2.4 ms per drag move among 36 pieces (outlines up to 242 points).
+
+  Next: M4, textures and colour.
 - 2026-11-01 — **M2 done** (1a75538). Built:
   - four generators (irregular polygon, shard, blob, wavy strip) with reroll;
   - the hand cutter with stabilisation (D007);
