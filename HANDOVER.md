@@ -1,13 +1,12 @@
 # mosaic-collage — Handover
-Last verified: 2026-11-01 at cee8523
+Last verified: 2026-11-02 at f2290f9
 
 A browser app for mosaics and paper collages. Pieces are made on a cutboard and placed on a
 workboard. Goal G-001 is in `GOALS.md`. Charter: `E:\CLAUDE\COMPANY\`.
 
 ## Current state
 
-G-001's six milestones are built; the goal waits on the Owner's sign-off. M4's bundled image textures still
-wait on the Owner (see Next steps).
+G-001 is done and signed off (2026-11-02; archived in `docs/goals-archive.md`). No goal is active.
 - Code is public at `https://github.com/yunniko/mosaic-collage`.
 - The app is live at `https://mosaic.app.julienika.cz` (see Deploy log).
 - CI on GitHub runs format, lint, typecheck and unit, then builds the production nginx image and runs the e2e
@@ -42,7 +41,7 @@ Works, verified in this session:
     - a drop or tray placement that would crowd a piece moves to the nearest free spot, at the margin;
     - a piece already overlapping when overlap is switched off is drawn red and moves freely until clear.
 - **Textures and colour** (cutboard, Texture and Colour layers sections):
-  - plain colour; seven generated textures (paper, clouds, marble, wood, granite, weave, stripes) with
+  - plain colour; four bundled photographed papers and card (D017); seven generated textures (paper, clouds, marble, wood, granite, weave, stripes) with
     parameters, editable colour stops and "New variation";
   - an uploaded image (PNG, JPEG, WebP, GIF, AVIF, BMP; not SVG) or a PDF page with a page picker, saved
     inside the `.mosaic` file; a file that can't be read gives a message and the fallback colour;
@@ -65,12 +64,11 @@ Works, verified in this session:
   - The board's drop shadow is exported at the same look.
 - **Layout.** Below 768 px wide the board comes first at full width and the panels stack under it.
 
-Not built: the bundled image textures (waiting on the Owner).
 
 Rendering a large sprite no longer stalls a zoom: it is shown coarser at once and refined in a Web Worker
 (D012); checked in the browser at maximum zoom with no console errors.
 
-Tests: unit 115/115 (Vitest); e2e 54/54 (Playwright: chromium 26, firefox 26, tablet touch 2), locally and in
+Tests: unit 120/120 (Vitest); e2e 56/56 (Playwright: chromium 27, firefox 27, tablet touch 2), locally and in
 CI against the nginx image.
 - An export toast could vanish before Firefox's driver looked for it, so the export specs record notices in
   the page.
@@ -136,23 +134,22 @@ fixed; one minor finding is open (see Next steps).
   and pdf.js's worker is `.mjs`.
 - Interface text goes through next-intl messages, English first (Owner, D004).
 - Bundled textures and fonts need a licence allowing redistribution, recorded in assets/ATTRIBUTION.md
-  (VALUES.md → Integrity of work). There are no bundled assets yet; the file comes with the first one.
+  (VALUES.md → Integrity of work).
 
 ## Next steps and open questions
 
-- G-001 waits on the Owner's sign-off.
+- No goal is active; new work starts as G-002 in `GOALS.md`.
 - QA finding 3: a file colour not in `#rrggbb` form loads as `#888888` without a warning. Low priority.
 - Not yet checked: Edge, a real phone or tablet, and timing a 600 dpi export of a large board.
 - Redeploy: `cd /var/www/repositories/mosaic-collage && git pull && docker compose --profile app up -d --build`.
   Then check the site in a browser and confirm the other containers were not recreated.
-- BLOCKED: may four CC0 texture zips be downloaded from ambientcg.com for the bundled set? Details in the
-  `GOALS.md` progress log. Until then the predefined set is the generated textures.
 
 ## Deploy log
 
 | Date | Commit | What changed | How verified |
 | ---- | ------ | ------------ | ------------ |
 | 2026-11-01 | 56af31a | First deploy: container, vhost and TLS via `julai-new-vhost` | HTTPS 200, headers, `.mjs` type, real PNG export in Chrome, other sites 200 |
+| 2026-11-02 | f2290f9 | Bundled paper and card textures | Texture specs against the live URL, 4/4; other sites 200; only this container recreated |
 | 2026-11-01 | cee8523 | Number-box and phone-layout fixes from QA | 3 e2e specs × 2 browsers against the live URL, 6/6; other sites 200; only this container recreated |
 
 ## Decisions

@@ -4,8 +4,8 @@ A browser app for making mosaics and paper collages. Pieces are made on the **cu
 texture, colour, relief and torn edge. They are then placed, rotated and locked on the
 **workboard**. Mosaics are saved as editable `.mosaic` files and exported to JPG or PNG.
 
-**State:** goal G-001, all six milestones built (pending the Owner's sign-off). What it does:
-- cutboard: predefined, generated and hand-cut shapes; plain, generated, image and PDF-page textures
+**State:** the first complete version (G-001) is done and live. What it does:
+- cutboard: predefined, generated and hand-cut shapes; plain, generated, bundled paper, image and PDF-page textures
   with blend modes and hue/saturation/lightness; bevel or emboss relief; torn edges;
 - workboard: place, move, rotate, lock and order pieces, with overlap on, or off with a margin;
 - a background (any texture) behind the artwork, with a padding;
@@ -34,7 +34,7 @@ npm test             # Vitest unit + Playwright e2e (run `npx playwright install
 - Teal accent (`#1f6f6a`).
 - The workboard is a generated wood table; the cutboard is a green cutting mat with a 1/10/50 mm grid.
 
-All surfaces are generated in code, so there is nothing third-party to license. Any bundled assets
-added later are listed in `assets/ATTRIBUTION.md`.
+The table, mat and generated textures are made in code. The four bundled paper and card photos are CC0
+from ambientCG, listed in `assets/ATTRIBUTION.md`.
 
 More detail is in `HANDOVER.md` and `docs/decisions/`.
