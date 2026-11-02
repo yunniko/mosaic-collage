@@ -16,3 +16,4 @@
 - D014 — The background is a texture laid over the artwork's bounds plus a padding — active
 - D015 — Export composes at full resolution in a worker, with capped size — active
 - D016 — The static export is served by an nginx container behind the host's vhost — active
+- D017 — Bundled image textures are copied into the document when chosen — active

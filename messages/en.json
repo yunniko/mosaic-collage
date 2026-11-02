@@ -202,7 +202,8 @@
     "outline-not-simple": "That outline crosses itself. Draw it as one loop.",
     "texture-type": "That file is not an image or a PDF.",
     "texture-too-big": "That file is over {mb} MB. Use a smaller image or PDF.",
-    "texture-unreadable": "“{name}” could not be read as a texture."
+    "texture-unreadable": "“{name}” could not be read as a texture.",
+    "library-load": "That texture could not be loaded. Check the connection and try again."
   },
   "cut": {
     "again": "Cut again",
@@ -249,5 +250,11 @@
     "working": "Exporting… {percent}%",
     "done": "Exported {name}.",
     "failed": "The export failed: {reason}"
+  },
+  "textureLibrary": {
+    "paper001": "Paper: white, grainy",
+    "paper003": "Paper: white, crumpled",
+    "paper005": "Paper: kraft",
+    "cardboard001": "Card: torn corrugated"
   }
 }

@@ -8,6 +8,7 @@ import type { AssetMeta, MosaicDocument, TextureSource, TextureTransform } from 
 import { randomSeed } from "@/lib/random";
 import { defaultParams, sanitizeParams } from "@/lib/shapes/params";
 import { TEXTURE_GENERATORS, findTextureGenerator } from "@/lib/textures/generators";
+import { TEXTURE_LIBRARY, findLibraryTexture, libraryUrl } from "@/lib/textures/library";
 import type { TextureGenerator } from "@/lib/textures/generators/registry";
 import { pdfPageCount } from "../render/texture-images";
 import { errorText } from "../state/errors";
@@ -37,8 +38,11 @@ function textureFileType(file: File): { kind: "image" | "pdf"; mime: string } | 
   return IMAGE_EXTENSIONS[ext] ? { kind: "image", mime: IMAGE_EXTENSIONS[ext] } : null;
 }
 
-/** In the picker an image and a PDF page are one choice, "a file": the file chosen decides which. */
-type Choice = "plain" | "generated" | "file";
+/**
+ * In the picker an image and a PDF page are one choice, "a file": the file chosen decides which. A bundled texture is
+ * `library:<file>`; once chosen it is an image asset like an upload.
+ */
+type Choice = "plain" | "generated" | "file" | `library:${string}`;
 
 const RAD = Math.PI / 180;
 
@@ -73,18 +77,18 @@ export function TextureEditor({
   const t = useTranslations();
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const doc = useDoc();
+
   const choose = (c: Choice) => {
     if (c === "file") return fileRef.current?.click();
+    if (c.startsWith("library:")) return void chooseLibrary(c.slice("library:".length));
     if (c === "plain") return onTexture({ kind: "plain", color: tex.kind === "generated" ? tex.colors[0] : "#c8553d" }, null);
     onTexture({ kind: "generated", ...generatedDefaults(TEXTURE_GENERATORS[0]), seed: randomSeed() }, null);
   };
 
-  const upload = async (file: File) => {
-    const type = textureFileType(file);
-    if (!type) return store.notify("error", t("errors.texture-type"));
-    if (file.size > MAX_UPLOAD_BYTES) return store.notify("error", t("errors.texture-too-big", { mb: MAX_UPLOAD_BYTES / 1048576 }));
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    const meta: AssetMeta = { id: newId(), name: file.name, mime: type.mime, kind: type.kind };
+  /** Adds the bytes as a document asset and puts its texture on, as one undo step. */
+  const addTexture = (bytes: Uint8Array, name: string, type: { kind: "image" | "pdf"; mime: string }) => {
+    const meta: AssetMeta = { id: newId(), name, mime: type.mime, kind: type.kind };
     const texture: TextureSource = type.kind === "pdf" ? { kind: "pdf", assetId: meta.id, page: 1 } : { kind: "image", assetId: meta.id };
     store.addAssetBytes(meta.id, bytes);
     const ok = store.apply(
@@ -94,7 +98,27 @@ export function TextureEditor({
     if (!ok) store.removeAssetBytes(meta.id);
   };
 
-  const choice: Choice = tex.kind === "image" || tex.kind === "pdf" ? "file" : tex.kind;
+  const upload = async (file: File) => {
+    const type = textureFileType(file);
+    if (!type) return store.notify("error", t("errors.texture-type"));
+    if (file.size > MAX_UPLOAD_BYTES) return store.notify("error", t("errors.texture-too-big", { mb: MAX_UPLOAD_BYTES / 1048576 }));
+    addTexture(new Uint8Array(await file.arrayBuffer()), file.name, type);
+  };
+
+  const chooseLibrary = async (file: string) => {
+    const entry = TEXTURE_LIBRARY.find((l) => l.file === file);
+    if (!entry) return;
+    try {
+      const res = await fetch(libraryUrl(entry));
+      if (!res.ok) throw new Error(String(res.status));
+      addTexture(new Uint8Array(await res.arrayBuffer()), entry.file, { kind: "image", mime: "image/jpeg" });
+    } catch {
+      store.notify("error", t("errors.library-load"));
+    }
+  };
+
+  const library = tex.kind === "image" ? findLibraryTexture(doc.assets.find((a) => a.id === tex.assetId)?.name) : undefined;
+  const choice: Choice = library ? `library:${library.file}` : tex.kind === "image" || tex.kind === "pdf" ? "file" : tex.kind;
   return (
     <>
       <SelectField<Choice>
@@ -103,6 +127,7 @@ export function TextureEditor({
         options={[
           { value: "plain", label: t("editor.texturePlain") },
           { value: "generated", label: t("editor.textureGenerated") },
+          ...TEXTURE_LIBRARY.map((l) => ({ value: `library:${l.file}` as Choice, label: t(`textureLibrary.${l.label}`) })),
           { value: "file", label: t("editor.textureFile") },
         ]}
         disabled={disabled}

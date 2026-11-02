@@ -126,3 +126,26 @@ test("colour layers tint and shift the texture, in order, and can be removed", a
   // Only the hue shift is left, and white has no hue to turn.
   await expectCentre(page, [255, 255, 255], 1);
 });
+
+test("a bundled paper textures the piece and is copied into the saved file", async ({ page }) => {
+  await openStudio(page);
+  const u = ui(page);
+  await u.newPiece.click();
+  await u.textureKind.selectOption("library:paper-005.jpg");
+  await expect(page.getByTestId("texture-file-name")).toHaveText("paper-005.jpg");
+  await expect(u.textureKind).toHaveValue("library:paper-005.jpg");
+  // Kraft paper: a warm light brown, red over green over blue.
+  await expect
+    .poll(async () => {
+      const [r, g, b] = await centrePixel(page);
+      return r > g && g > b && r > 150 && b < 160;
+    })
+    .toBe(true);
+
+  const { doc, download } = await savedDocument(page);
+  const assetId = (doc.pieces[0].texture as { assetId: string }).assetId;
+  expect(doc.assets).toEqual([{ id: assetId, name: "paper-005.jpg", mime: "image/jpeg", kind: "image" }]);
+  const zip = await JSZip.loadAsync(await readFile(await download.path()));
+  const saved = await zip.file(`assets/${assetId}`)!.async("nodebuffer");
+  expect(saved.equals(await readFile("public/textures/paper-005.jpg"))).toBe(true);
+});
